@@ -26,38 +26,41 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 - Marcador grande incluído.
 - Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa, marcadores e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
-## Organização atual
+## O que tem em cada pasta e arquivo
 
-```text
-src/
-  main.ts       # Ponto de entrada carregado pelo Vite
-  jogo/         # Classes e regras (peças, baralho, tabuleiro, construções, jogadores, partida, pontuação)
-  ia/           # Estratégias do computador
-  telas/        # Interface com Phaser (menu, jogadores, partida, peças, regras, créditos)
-public/
-  assets/       # Futuros recursos visuais e sonoros
-testes/         # Testes das regras (*.test.ts), executados pelo Vitest
-  aleatorio.ts  # Gerador com semente para testes repetíveis
-docs/
-  referencias/  # PDFs e diagrama do grupo
-  plano-proximos-passos.pdf  # Análise e roteiro em fases
-  fase-1-especificacao.md    # Especificação da fase 1 (peças)
-  fase-2-especificacao.md    # Especificação da fase 2 (tabuleiro)
-  fase-3-especificacao.md    # Especificação da fase 3 (jogadores, turnos, marcadores e placar)
-  regras-de-pontuacao.md     # Regras de pontuação decididas e pendentes
-index.html      # HTML mínimo que carrega src/main.ts
-package.json    # Metadados, dependências e comandos do projeto
-package-lock.json # Versões exatas das dependências resolvidas pelo npm
-tsconfig.json   # Configuração do TypeScript (inclui src/ e testes/)
-vitest.config.ts # Configuração dos testes
-.gitignore      # Arquivos locais e gerados a ignorar no Git
-README.md
-PROMPT_CARCASSONNE.md
-```
+Na lista de arquivos do GitHub, a coluna do meio mostra a mensagem do **último commit** que mexeu em cada item, não uma descrição. A descrição de cada um está aqui:
 
-A pasta `public/assets` contém somente um `.gitkeep` vazio para preservá-la no Git. As classes serão adicionadas conforme cada parte for desenvolvida, sem subdivisões por categoria dentro de `jogo` nesta etapa. As regras deverão ser independentes da interface.
+| Item | O que é |
+| --- | --- |
+| `docs/` | Documentação do trabalho: especificações das fases 1 a 3, regras de pontuação, plano de próximos passos e os PDFs de referência do grupo. |
+| `public/assets/` | Lugar reservado para imagens e sons do jogo; por enquanto está vazio, porque as peças são desenhadas por código. |
+| `src/` | Código do jogo: as regras em `jogo/`, a inteligência do computador em `ia/` e as telas feitas com Phaser em `telas/`. |
+| `testes/` | Testes automatizados das regras (Vitest), um arquivo por classe ou assunto, incluindo partidas simuladas inteiras. |
+| `.gitignore` | Lista do que o Git deve ignorar, como `node_modules/`, o build em `dist/` e a pasta local `.tools/`. |
+| `PROMPT_CARCASSONNE.md` | Pedido usado na etapa inicial para montar a estrutura do projeto, guardado como registro histórico. |
+| `README.md` | Este arquivo: estado do projeto, como instalar, rodar e jogar. |
+| `index.html` | Página mínima que o Vite abre no navegador e que carrega o jogo (`src/main.ts`). |
+| `package-lock.json` | Versões exatas de todas as dependências instaladas, para que todos do grupo tenham o mesmo ambiente. |
+| `package.json` | Nome do projeto, dependências (Phaser, TypeScript, Vite, Vitest) e os comandos `npm run`. |
+| `tsconfig.json` | Configuração do TypeScript, que confere os tipos de `src/` e `testes/`. |
+| `vitest.config.ts` | Configuração dos testes: onde eles ficam e que rodam em Node, sem navegador. |
+
+Dentro de `src/` e `docs/`:
+
+| Item | O que é |
+| --- | --- |
+| `src/main.ts` | Ponto de entrada: cria o jogo Phaser e registra as telas. |
+| `src/jogo/` | Regras, sem depender do Phaser: peças e catálogo (`Tile`, `DefinicaoTile`, `catalogoDeTiles`), baralho (`TileDeck`, `TileFactory`), tabuleiro e construções (`Board`, `Feature`, `UnionFind`), jogadores e marcadores (`Jogador`, `Marcador`), partida e turnos (`Partida`, `EstadoDaPartida`) e pontuação (`Pontuacao`). |
+| `src/ia/` | Estratégias do computador: fácil (sorteia) e difícil (avalia cada jogada e marcador). |
+| `src/telas/` | Telas em Phaser: menu, escolha de jogadores, tabuleiro com painel, peças, regras e créditos, além do desenho das peças e dos marcadores. |
+| `docs/referencias/` | Material original do grupo: apresentação, requisitos (RFs e RNs) e diagrama de classes. |
+| `docs/plano-proximos-passos.pdf` | Análise do projeto e roteiro em fases, escrito antes da troca de tema. |
+| `docs/fase-*-especificacao.md` | O que cada fase implementa, com diagrama de classes, decisões, testes e dificuldades. |
+| `docs/regras-de-pontuacao.md` | Regras de pontuação e dos marcadores já decididas, e o que ainda está pendente. |
+
+As regras ficam separadas da interface: nada em `src/jogo/` ou `src/ia/` usa o Phaser, por isso os testes rodam sem navegador.
 
 ## Ferramentas
 
