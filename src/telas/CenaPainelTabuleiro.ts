@@ -186,15 +186,19 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     if (etapaDoMarcador) {
       const chefe = jogador.disponiveis(TipoDeMarcador.CHEFE) > 0 ? '' : '\nO chefe está no tabuleiro.';
       this.textoPeca.setText(
-        `Quer pôr um marcador? Clique num dos ${estado.regioesParaMarcador === 1 ? '' : `${estado.regioesParaMarcador} `}` +
-          `círculo${estado.regioesParaMarcador === 1 ? '' : 's'} da peça, ou pule.${chefe}`,
+        `Quer pôr um marcador? Clique ${estado.regioesParaMarcador === 1 ? 'no círculo' : `num dos ${estado.regioesParaMarcador} círculos`}` +
+          ` da peça, ou pule.${chefe}`,
       );
       return;
     }
-    const dica =
-      estado.posicoesValidasNaRotacao === 0
-        ? 'Não encaixa nesta rotação: gire a peça.'
-        : `Encaixa em ${estado.posicoesValidasNaRotacao} lugar(es) nesta rotação.`;
+    const lugares = `Cabe em ${estado.posicoesValidas} lugar${estado.posicoesValidas === 1 ? '' : 'es'} (em verde). No mouse, a peça gira sozinha.`;
+    const aqui =
+      estado.rotacoesNaPosicao > 1
+        ? `Aqui encaixa de ${estado.rotacoesNaPosicao} jeitos: R troca.`
+        : estado.rotacoesNaPosicao === 1
+          ? 'Aqui encaixa de 1 jeito.'
+          : '';
+    const dica = aqui || lugares;
     this.textoPeca.setText(`${nome}\nrotação ${estado.atual.getRotacao() * 90}°\n\n${dica}`);
   }
 

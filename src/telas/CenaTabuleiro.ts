@@ -37,7 +37,9 @@ export interface EstadoDoTabuleiro {
   readonly restantes: number;
   readonly colocadas: number;
   readonly descartadas: number;
-  readonly posicoesValidasNaRotacao: number;
+  // Posições onde a peça cabe em alguma rotação, e de quantos jeitos ela cabe na posição sob o mouse.
+  readonly posicoesValidas: number;
+  readonly rotacoesNaPosicao: number;
   // Na etapa do marcador: quantas regiões da peça aceitam marcador e se o chefe está escolhido.
   readonly regioesParaMarcador: number;
   readonly usarChefe: boolean;
@@ -50,6 +52,15 @@ interface OpcaoDeMarcador {
   readonly regiaoId: string;
   readonly x: number;
   readonly y: number;
+}
+
+// A primeira rotação da lista a partir de "inicio", girando no sentido horário.
+function proximaRotacao(rotacoes: readonly number[], inicio: number): number {
+  for (let i = 0; i < 4; i++) {
+    const r = (inicio + i) % 4;
+    if (rotacoes.includes(r)) return r;
+  }
+  throw new Error('A peça não encaixa nesta posição.');
 }
 
 function nomeDoTerreno(tipo: Terrain): string {
@@ -81,6 +92,9 @@ export class CenaTabuleiro extends Phaser.Scene {
   private usarChefe = false;
   private opcoes: OpcaoDeMarcador[] = [];
   private desenhosDosMarcadores = new Map<Marcador, Phaser.GameObjects.Graphics>();
+  // Na etapa da peça: para cada posição (chave "x,y"), as rotações em que a peça encaixa.
+  private encaixes = new Map<string, number[]>();
+  private posicaoSobMouse: Position | null = null;
 
   private destaques!: Phaser.GameObjects.Graphics;
   private fantasma!: Phaser.GameObjects.Graphics;
@@ -106,6 +120,8 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.usarChefe = false;
     this.opcoes = [];
     this.desenhosDosMarcadores = new Map();
+    this.encaixes = new Map();
+    this.posicaoSobMouse = null;
 
     const camera = this.cameras.main;
     camera.setViewport(0, 0, LARGURA_TABULEIRO, this.scale.height);
@@ -129,12 +145,19 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   // Chamados pelo painel.
 
+  // Com o mouse numa posição verde, passa para a próxima rotação que encaixa ali;
+  // fora delas, gira normalmente.
   girar(): void {
     const atual = this.partida.getPecaAtual();
     if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
-    atual.rotacionar();
-    this.fantasma.clear();
-    this.atualizar();
+    const rotacoes = this.posicaoSobMouse && this.encaixes.get(this.posicaoSobMouse.chave());
+    if (rotacoes) {
+      atual.definirRotacao(proximaRotacao(rotacoes, atual.getRotacao() + 1));
+    } else {
+      atual.rotacionar();
+    }
+    this.desenharFantasmaDaPeca();
+    this.emitirEstado();
   }
 
   alternarChefe(): void {
@@ -179,7 +202,8 @@ export class CenaTabuleiro extends Phaser.Scene {
       restantes: this.partida.quantidadeRestante(),
       colocadas: this.partida.getBoard().quantidadeDeTiles(),
       descartadas: this.partida.quantidadeDeDescartadas(),
-      posicoesValidasNaRotacao: atual && fase === FaseDaPartida.COLOCAR_PECA ? this.posicoesValidasNaRotacao(atual).length : 0,
+      posicoesValidas: this.encaixes.size,
+      rotacoesNaPosicao: (this.posicaoSobMouse && this.encaixes.get(this.posicaoSobMouse.chave())?.length) || 0,
       regioesParaMarcador: this.opcoes.length,
       usarChefe: this.usarChefe,
       eventos: this.eventos,
@@ -220,9 +244,12 @@ export class CenaTabuleiro extends Phaser.Scene {
   private colocarEm(posicao: Position): void {
     const atual = this.partida.getPecaAtual();
     if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
-    const jogada = new Jogada(posicao, atual.getRotacao());
-    if (!this.partida.getBoard().podeColocar(atual, jogada)) return;
-    this.colocarPeca(jogada);
+    const rotacoes = this.encaixes.get(posicao.chave());
+    if (!rotacoes) return;
+    // Garante uma rotação que encaixa (o clique pode vir sem o mouse ter passado por ali).
+    atual.definirRotacao(proximaRotacao(rotacoes, atual.getRotacao()));
+    this.encaixes = new Map();
+    this.colocarPeca(new Jogada(posicao, atual.getRotacao()));
 
     const regioes = this.partida.regioesParaMarcador();
     if (regioes.length === 0) {
@@ -319,21 +346,27 @@ export class CenaTabuleiro extends Phaser.Scene {
     }
   }
 
-  private posicoesValidasNaRotacao(tile: Tile): Position[] {
-    const board = this.partida.getBoard();
-    return board.posicoesDisponiveis().filter((p) => board.podeColocar(tile, new Jogada(p, tile.getRotacao())));
+  // Todas as jogadas válidas da peça, agrupadas por posição.
+  private calcularEncaixes(tile: Tile): Map<string, number[]> {
+    const encaixes = new Map<string, number[]>();
+    for (const { position, rotacao } of this.partida.getBoard().jogadasValidas(tile)) {
+      encaixes.set(position.chave(), [...(encaixes.get(position.chave()) ?? []), rotacao]);
+    }
+    return encaixes;
   }
 
   private atualizar(): void {
     this.destaques.clear();
     this.camadaDeOpcoes.clear();
+    this.encaixes = new Map();
     const atual = this.partida.getPecaAtual();
     // Só na vez de um humano: na vez da CPU, não é ele quem escolhe.
+    // Verde: a peça cabe ali em alguma rotação. Cinza: não cabe de jeito nenhum.
     if (atual && this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) {
-      const validas = new Set(this.posicoesValidasNaRotacao(atual).map((p) => p.chave()));
+      this.encaixes = this.calcularEncaixes(atual);
       for (const p of this.partida.getBoard().posicoesDisponiveis()) {
         const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
-        if (validas.has(p.chave())) {
+        if (this.encaixes.has(p.chave())) {
           this.destaques.fillStyle(COR_VALIDA, 0.18).fillRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
           this.destaques.lineStyle(2, COR_VALIDA, 0.9).strokeRect(x + 2, y + 2, TAMANHO_PECA - 4, TAMANHO_PECA - 4);
         } else {
@@ -434,7 +467,13 @@ export class CenaTabuleiro extends Phaser.Scene {
   private mostrarFantasma(ponteiro: Phaser.Input.Pointer | null): void {
     this.fantasma.clear();
     const atual = this.partida.getPecaAtual();
-    if (!ponteiro || !atual) return;
+    const posicao = ponteiro ? this.posicaoSobPonteiro(ponteiro) : null;
+    const mudouDePosicao = posicao === null ? this.posicaoSobMouse !== null : !this.posicaoSobMouse?.equals(posicao);
+    this.posicaoSobMouse = posicao;
+    if (!ponteiro || !atual) {
+      if (mudouDePosicao) this.emitirEstado();
+      return;
+    }
 
     if (this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) {
       const mundo = this.cameras.main.getWorldPoint(ponteiro.x, ponteiro.y);
@@ -445,8 +484,22 @@ export class CenaTabuleiro extends Phaser.Scene {
       return;
     }
     if (!this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
-    const posicao = this.posicaoSobPonteiro(ponteiro);
-    if (!this.partida.getBoard().podeColocar(atual, new Jogada(posicao, atual.getRotacao()))) return;
+    // Numa posição verde, a peça gira sozinha para uma rotação que encaixa ali.
+    const rotacoes = this.encaixes.get(posicao!.chave());
+    if (rotacoes && !rotacoes.includes(atual.getRotacao())) {
+      atual.definirRotacao(proximaRotacao(rotacoes, atual.getRotacao()));
+      this.emitirEstado();
+    } else if (mudouDePosicao) {
+      this.emitirEstado();
+    }
+    this.desenharFantasmaDaPeca();
+  }
+
+  private desenharFantasmaDaPeca(): void {
+    this.fantasma.clear();
+    const atual = this.partida.getPecaAtual();
+    const posicao = this.posicaoSobMouse;
+    if (!atual || !posicao || !this.encaixes.get(posicao.chave())?.includes(atual.getRotacao())) return;
     desenharTile(this.fantasma, atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
   }
 }

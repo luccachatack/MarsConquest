@@ -190,7 +190,7 @@ Em **Jogar**, escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para tro
 
 Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem é a vez e a peça a colocar. Cada turno tem duas etapas:
 
-1. **Peça:** as posições em verde são onde a peça encaixa na rotação atual; passando o mouse sobre elas aparece a prévia.
+1. **Peça:** as posições em verde são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia; se encaixar de mais de um jeito, `R` alterna entre esses jeitos.
 2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. Se nenhuma região aceita marcador, o turno termina sozinho.
 
 Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Quando o baralho acaba, aparece a classificação final. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
@@ -198,7 +198,7 @@ Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum s�
 | Ação | Controle |
 | --- | --- |
 | Colocar a peça | Clique numa posição verde |
-| Girar a peça | `R`, botão direito, botão **Girar** ou clique na prévia do painel |
+| Girar a peça (sobre uma posição verde, só entre as rotações que encaixam) | `R`, botão direito, botão **Girar** ou clique na prévia do painel |
 | Pôr um marcador | Clique num círculo da peça recém-colocada |
 | Trocar entre colono e chefe | `E` ou botão **Chefe** |
 | Não pôr marcador | `Espaço` ou botão **Pular** |
