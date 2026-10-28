@@ -47,7 +47,7 @@ const NOMES: Record<string, [string, string]> = {
 // [título, detalhe, quadro da folha, recorte (x, y, lado) dentro do quadro, cor sem a folha]
 const LEGENDA: [string, string, number, [number, number, number], number][] = [
   ['Habitat', 'no Carcassonne: cidade', 4, [64, 0, 128], CORES.habitat],
-  ['Cristal', 'no Carcassonne: brasão', 2, [96, 96, 64], CORES.cristal],
+  ['Cristal', 'no Carcassonne: brasão', 2, [160, 20, 64], CORES.cristal],
   ['Duto', 'no Carcassonne: estrada', 22, [0, 80, 96], CORES.duto],
   ['Junção', 'termina os dutos', 22, [96, 96, 64], CORES.duto],
   ['Estufa', 'no Carcassonne: mosteiro', 1, [48, 48, 160], CORES.estufa],
