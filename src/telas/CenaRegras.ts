@@ -27,8 +27,8 @@ const PASSOS_DO_TURNO = [
   'Compre a peça do topo do baralho.',
   'Gire a peça e coloque-a encostada em pelo menos uma peça da mesa. Se a jogada não valer, tente de novo: você não perde a vez.',
   'Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto e solo com solo.',
-  'Se quiser, ponha um colono ou o chefe num habitat, duto ou estufa dessa peça.',
-  'Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
+  'Se quiser, ponha um colono ou o chefe num habitat, duto ou estufa da peça.',
+  'Se a peça não couber em lugar nenhum, ela é descartada e vem outra.',
 ];
 
 const COLONOS_E_CHEFE =
@@ -81,22 +81,38 @@ function iconeTrofeu(g: Phaser.GameObjects.Graphics, x: number, y: number, cor: 
   g.lineBetween(x, y + 1, x, y + 5).lineBetween(x - 4, y + 6, x + 4, y + 6);
 }
 
+// Tamanhos de letra: o corpo em 15 px fica legível mesmo com a janela menor que 1280 × 720.
+const CORPO = 15;
+const TITULO = 17;
+const ENTRE_LINHAS = 3;
+const ESPACO = 12;
+const COLUNA = { x: 40, largura: 590 };
+const PAINEL = { x: 659, y: 113, largura: 580 };
+
+function corpo(largura: number): Phaser.Types.GameObjects.Text.TextStyle {
+  return { ...estilo(CORPO, CREME_FRACO), lineSpacing: ENTRE_LINHAS, wordWrap: { width: largura } };
+}
+
 export class CenaRegras extends Phaser.Scene {
   constructor() {
     super(CENAS.regras);
   }
 
+  // Os cartões são empilhados pela altura do texto; no fim, a coluna e o painel terminam na mesma linha.
   create(): void {
     desenharFundoPontilhado(this);
     criarTituloDaTela(this, 'Regras');
     this.desenharAviso();
 
-    this.add.text(40, 118, 'COMO JOGAR', estilo(13, LARANJA, true, FONTE_TITULO)).setLetterSpacing(4).setOrigin(0, 0.5);
-    this.cartaoCurto(40, 'Objetivo', 'Construir a melhor colônia em Marte. Quem tiver mais pontos no fim da partida vence.', iconeBandeira);
-    this.cartaoCurto(341, 'Preparação', PREPARACAO, iconeCopia);
-    this.cartaoDoTurno();
-    this.cartaoDosMarcadores();
-    this.painelDePontuacao();
+    this.add.text(COLUNA.x, 114, 'COMO JOGAR', estilo(14, LARANJA, true, FONTE_TITULO)).setLetterSpacing(4).setOrigin(0, 0.5);
+    let y = this.cartoesCurtos(134);
+    y = this.cartaoDoTurno(y + ESPACO);
+    const fimDaPartida = this.cartaoDoFim(y + ESPACO);
+    const painel = this.painelDePontuacao();
+
+    const base = Math.max(fimDaPartida.base, painel.base);
+    fimDaPartida.pintar(base);
+    painel.pintar(base);
   }
 
   // Selo "em teste" à direita do título.
@@ -115,74 +131,101 @@ export class CenaRegras extends Phaser.Scene {
     aviso.setDepth(1);
   }
 
-  private cartao(x: number, y: number, largura: number, altura: number): void {
-    this.add
-      .graphics()
-      .fillStyle(COR_ESCURA, 0.7)
-      .fillRoundedRect(x, y, largura, altura, 10)
-      .lineStyle(1, 0xffffff, 0.08)
-      .strokeRoundedRect(x, y, largura, altura, 10);
-  }
-
-  private cartaoCurto(
-    x: number,
-    titulo: string,
-    texto: string,
-    icone: (g: Phaser.GameObjects.Graphics, x: number, y: number) => void,
-  ): void {
-    this.cartao(x, 141, 289, 107);
-    icone(this.add.graphics(), x + 22, 163);
-    this.add.text(x + 40, 163, titulo, estilo(15, CREME, true)).setOrigin(0, 0.5);
-    this.add.text(x + 15, 180, texto, { ...estilo(13, CREME_FRACO), lineSpacing: 5, wordWrap: { width: 262 } });
-  }
-
-  private cartaoDoTurno(): void {
-    this.cartao(40, 263, 590, 227);
-    this.add.text(57, 287, 'Seu turno', estilo(15, CREME, true)).setOrigin(0, 0.5);
+  // Fundo de cartão. Criado antes do conteúdo para ficar atrás; pintado depois, quando a altura é conhecida.
+  private fundoDeCartao(): (x: number, y: number, largura: number, altura: number) => void {
     const g = this.add.graphics();
-    let y = 306;
-    PASSOS_DO_TURNO.forEach((passo, i) => {
-      g.fillStyle(COR_LARANJA, 1).fillRoundedRect(57, y, 21, 21, 4);
-      this.add.text(67.5, y + 10.5, String(i + 1), estilo(12, CREME, true)).setOrigin(0.5);
-      const texto = this.add.text(89, y + 2, passo, { ...estilo(13, CREME_FRACO), lineSpacing: 5, wordWrap: { width: 520 } });
-      y += Math.max(21, texto.height) + 9;
+    return (x, y, largura, altura) =>
+      g
+        .clear()
+        .fillStyle(COR_ESCURA, 0.7)
+        .fillRoundedRect(x, y, largura, altura, 10)
+        .lineStyle(1, 0xffffff, 0.08)
+        .strokeRoundedRect(x, y, largura, altura, 10);
+  }
+
+  // Objetivo e Preparação lado a lado, com a mesma altura. Devolve onde terminam.
+  private cartoesCurtos(y: number): number {
+    const largura = (COLUNA.largura - ESPACO) / 2;
+    const cartoes: [string, string, (g: Phaser.GameObjects.Graphics, x: number, y: number) => void][] = [
+      ['Objetivo', 'Construir a melhor colônia em Marte. Quem tiver mais pontos no fim da partida vence.', iconeBandeira],
+      ['Preparação', PREPARACAO, iconeCopia],
+    ];
+    const pintores = cartoes.map(() => this.fundoDeCartao());
+    const alturas = cartoes.map(([titulo, texto, icone], i) => {
+      const x = COLUNA.x + i * (largura + ESPACO);
+      icone(this.add.graphics(), x + 22, y + 22);
+      this.add.text(x + 40, y + 22, titulo, estilo(TITULO, CREME, true)).setOrigin(0, 0.5);
+      return 42 + this.add.text(x + 15, y + 42, texto, corpo(largura - 30)).height + 14;
     });
+    const altura = Math.max(...alturas);
+    pintores.forEach((pintar, i) => pintar(COLUNA.x + i * (largura + ESPACO), y, largura, altura));
+    return y + altura;
   }
 
-  private cartaoDosMarcadores(): void {
-    this.cartao(40, 505, 590, 150);
+  private cartaoDoTurno(y: number): number {
+    const pintar = this.fundoDeCartao();
+    const x = COLUNA.x + 17;
+    this.add.text(x, y + 24, 'Seu turno', estilo(TITULO, CREME, true)).setOrigin(0, 0.5);
     const g = this.add.graphics();
-    desenharMarcador(g, TipoDeMarcador.COLONO, CORES_DOS_JOGADORES[0], 70, 552, 96);
-    desenharMarcador(g, TipoDeMarcador.CHEFE, CORES_DOS_JOGADORES[0], 103, 549, 96);
-    this.add.text(135, 530, 'Colonos e chefe', estilo(15, CREME, true)).setOrigin(0, 0.5);
-    this.add.text(135, 546, COLONOS_E_CHEFE, { ...estilo(13, CREME_FRACO), lineSpacing: 5, wordWrap: { width: 475 } });
+    let yPasso = y + 46;
+    PASSOS_DO_TURNO.forEach((passo, i) => {
+      g.fillStyle(COR_LARANJA, 1).fillRoundedRect(x, yPasso, 22, 22, 4);
+      this.add.text(x + 11, yPasso + 11, String(i + 1), estilo(13, CREME, true)).setOrigin(0.5);
+      const texto = this.add.text(x + 34, yPasso + 1, passo, corpo(COLUNA.largura - 68));
+      yPasso += Math.max(22, texto.height) + 8;
+    });
+    const altura = yPasso - y + 6;
+    pintar(COLUNA.x, y, COLUNA.largura, altura);
+    return y + altura;
   }
 
-  private painelDePontuacao(): void {
-    const [x0, y0, largura, altura] = [659, 113, 580, 578];
-    this.add
-      .graphics()
-      .fillStyle(0x000000, 0.25)
-      .fillRoundedRect(x0 + 2, y0 + 6, largura, altura, 14)
-      .fillStyle(COR_PAINEL, 0.85)
-      .fillRoundedRect(x0, y0, largura, altura, 14)
-      .lineStyle(1, 0xffffff, 0.08)
-      .strokeRoundedRect(x0, y0, largura, altura, 14);
-    this.add.text(x0 + 20, 135, 'PONTUAÇÃO', estilo(13, LARANJA, true, FONTE_TITULO)).setLetterSpacing(4).setOrigin(0, 0.5);
+  // Último cartão da coluna: é esticado até a base comum.
+  private cartaoDoFim(y: number): { base: number; pintar: (base: number) => void } {
+    const pintar = this.fundoDeCartao();
+    iconeTrofeu(this.add.graphics(), COLUNA.x + 26, y + 24, 0xe8834f);
+    this.add.text(COLUNA.x + 44, y + 24, 'Fim da partida', estilo(TITULO, CREME, true)).setOrigin(0, 0.5);
+    const texto = this.add.text(COLUNA.x + 17, y + 44, FIM_DA_PARTIDA, corpo(COLUNA.largura - 34));
+    return { base: y + 44 + texto.height + 16, pintar: (base) => pintar(COLUNA.x, y, COLUNA.largura, base - y) };
+  }
+
+  private painelDePontuacao(): { base: number; pintar: (base: number) => void } {
+    const { x: x0, y: y0, largura } = PAINEL;
+    const fundo = this.add.graphics();
+    this.add.text(x0 + 20, y0 + 22, 'PONTUAÇÃO', estilo(14, LARANJA, true, FONTE_TITULO)).setLetterSpacing(4).setOrigin(0, 0.5);
 
     const tamanho = 64;
-    PONTUACAO.forEach(([peca, titulo, valor, texto], i) => {
-      const y = 156 + i * 76;
+    const xTexto = x0 + 100;
+    const larguraTexto = largura - 120;
+    let y = y0 + 44;
+    for (const [peca, titulo, valor, texto] of PONTUACAO) {
       this.desenharPecaDaLinha(peca, x0 + 20, y, tamanho);
-      const rotulo = this.add.text(x0 + 100, y + 12, titulo, estilo(15, CREME, true)).setOrigin(0, 0.5);
-      this.add.text(rotulo.x + rotulo.width + 9, y + 13, valor, estilo(12, LARANJA, true)).setOrigin(0, 0.5);
-      this.add.text(x0 + 100, y + 25, texto, { ...estilo(13, CREME_FRACO), lineSpacing: 5, wordWrap: { width: 455 } });
-    });
+      const rotulo = this.add.text(xTexto, y + 11, titulo, estilo(TITULO, CREME, true)).setOrigin(0, 0.5);
+      this.add.text(rotulo.x + rotulo.width + 10, y + 12, valor, estilo(14, LARANJA, true)).setOrigin(0, 0.5);
+      const corpoDaLinha = this.add.text(xTexto, y + 24, texto, corpo(larguraTexto));
+      y += Math.max(tamanho, 24 + corpoDaLinha.height) + 14;
+    }
 
-    this.add.graphics().lineStyle(1, 0xffffff, 0.1).lineBetween(x0 + 20, 575, x0 + largura - 20, 575);
-    iconeTrofeu(this.add.graphics(), x0 + 29, 600, 0xe8834f);
-    this.add.text(x0 + 46, 600, 'Fim da partida', estilo(15, CREME, true)).setOrigin(0, 0.5);
-    this.add.text(x0 + 20, 617, FIM_DA_PARTIDA, { ...estilo(13, CREME_FRACO), lineSpacing: 5, wordWrap: { width: largura - 40 } });
+    // Colonos e chefe: quem leva os pontos de cada construção.
+    this.add.graphics().lineStyle(1, 0xffffff, 0.1).lineBetween(x0 + 20, y, x0 + largura - 20, y);
+    y += 16;
+    const g = this.add.graphics();
+    desenharMarcador(g, TipoDeMarcador.COLONO, CORES_DOS_JOGADORES[0], x0 + 36, y + 44, 96);
+    desenharMarcador(g, TipoDeMarcador.CHEFE, CORES_DOS_JOGADORES[0], x0 + 70, y + 41, 96);
+    this.add.text(xTexto, y + 11, 'Colonos e chefe', estilo(TITULO, CREME, true)).setOrigin(0, 0.5);
+    const marcadores = this.add.text(xTexto, y + 24, COLONOS_E_CHEFE, corpo(larguraTexto));
+    const base = y + 24 + marcadores.height + 20;
+
+    return {
+      base,
+      pintar: (b) =>
+        fundo
+          .fillStyle(0x000000, 0.25)
+          .fillRoundedRect(x0 + 2, y0 + 6, largura, b - y0, 14)
+          .fillStyle(COR_PAINEL, 0.85)
+          .fillRoundedRect(x0, y0, largura, b - y0, 14)
+          .lineStyle(1, 0xffffff, 0.08)
+          .strokeRoundedRect(x0, y0, largura, b - y0, 14),
+    };
   }
 
   // O solo usa um canto só de solo da arte do habitat-lado (quadro 4), ampliado.
