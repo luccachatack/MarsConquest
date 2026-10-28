@@ -1,202 +1,157 @@
 import Phaser from 'phaser';
 import { CATALOGO_DE_TILES, ID_TILE_INICIAL } from '../jogo/catalogoDeTiles';
-import { Direction } from '../jogo/Direction';
-import { pontosDoLado } from '../jogo/PontosDeBorda';
-import { Terrain } from '../jogo/Terrain';
-import type { Tile } from '../jogo/Tile';
-import type { TileDeck } from '../jogo/TileDeck';
-import { TileFactory } from '../jogo/TileFactory';
-import { criarPeca, desenharPeca } from './desenharPeca';
+import { Tile } from '../jogo/Tile';
+import { ARTE_DAS_PECAS, CHAVE_DAS_PECAS, desenharPeca } from './desenharPeca';
 import { CORES } from './desenharTile';
 import {
   CENAS,
-  COR_DESTAQUE,
-  COR_PAINEL,
-  COR_TEXTO,
-  COR_TEXTO_FRACO,
-  criarBotao,
-  criarCabecalho,
+  COR_ESCURA,
+  COR_LARANJA,
+  CREME,
+  CREME_FRACO,
+  criarTituloDaTela,
+  desenharFundoPontilhado,
   estilo,
-  nomeDaPeca,
 } from './ui';
 
-const NOMES_TERRENO: Record<Terrain, string> = {
-  [Terrain.HABITAT]: 'habitat',
-  [Terrain.PIPE]: 'duto',
-  [Terrain.SOIL]: 'solo',
-  [Terrain.GREENHOUSE]: 'estufa',
+const LETRAS = 'ABCDEFGHIJKLMNOPQRSTUVWX';
+
+// Nome e detalhe de cada peça no cartão.
+const NOMES: Record<string, [string, string]> = {
+  'estufa-duto': ['Estufa', 'com duto'],
+  estufa: ['Estufa', 'isolada'],
+  cupula: ['Cúpula', 'com cristal'],
+  'habitat-lado-duto-reto': ['Habitat', 'duto reto'],
+  'habitat-lado': ['Habitat', 'um lado'],
+  'habitat-ponte-cristal': ['Habitat ponte', 'com cristal'],
+  'habitat-ponte': ['Habitat ponte', 'sem cristal'],
+  'habitats-opostos': ['Dois habitats', 'lados opostos'],
+  'habitats-vizinhos': ['Dois habitats', 'lados vizinhos'],
+  'habitat-lado-curva-leste': ['Habitat', 'duto em curva a leste'],
+  'habitat-lado-curva-oeste': ['Habitat', 'duto em curva a oeste'],
+  'habitat-lado-juncao': ['Habitat', 'junção'],
+  'habitat-canto-cristal': ['Habitat de canto', 'com cristal'],
+  'habitat-canto': ['Habitat de canto', 'sem cristal'],
+  'habitat-canto-duto-cristal': ['Habitat de canto', 'cristal · duto'],
+  'habitat-canto-duto': ['Habitat de canto', 'com duto'],
+  'habitat-tres-lados-cristal': ['Habitat 3 lados', 'com cristal'],
+  'habitat-tres-lados': ['Habitat 3 lados', 'sem cristal'],
+  'habitat-tres-lados-duto-cristal': ['Habitat 3 lados', 'cristal · duto'],
+  'habitat-tres-lados-duto': ['Habitat 3 lados', 'com duto'],
+  'duto-reto': ['Duto reto', 'solo'],
+  'duto-curva': ['Duto curva', 'solo'],
+  'juncao-tres': ['Junção', '3 saídas'],
+  'juncao-quatro': ['Junção', '4 saídas'],
 };
 
-const SIGLAS_LADO: [Direction, string][] = [
-  [Direction.NORTH, 'N'],
-  [Direction.EAST, 'L'],
-  [Direction.SOUTH, 'S'],
-  [Direction.WEST, 'O'],
+// [título, detalhe, quadro da folha, recorte (x, y, lado) dentro do quadro, cor sem a folha]
+const LEGENDA: [string, string, number, [number, number, number], number][] = [
+  ['Habitat', 'no Carcassonne: cidade', 4, [64, 0, 128], CORES.habitat],
+  ['Cristal', 'no Carcassonne: brasão', 2, [96, 96, 64], CORES.cristal],
+  ['Duto', 'no Carcassonne: estrada', 22, [0, 80, 96], CORES.duto],
+  ['Junção', 'termina os dutos', 22, [96, 96, 64], CORES.duto],
+  ['Estufa', 'no Carcassonne: mosteiro', 1, [48, 48, 160], CORES.estufa],
+  ['Solo', 'no Carcassonne: campo', 4, [128, 128, 128], CORES.solo],
 ];
 
-// O ponto do meio basta para saber o terreno do lado.
-function descreverLado(tile: Tile, d: Direction): string {
-  return NOMES_TERRENO[tile.getTerrenoNoPonto(pontosDoLado(d)[1])];
-}
+const GRADE = { x: 40, y: 118, colunas: 8, largura: 141, altura: 168, espaco: 10 };
+const TAMANHO_DA_PECA = 100;
 
-// Posição e tamanho da peça grande no painel do baralho.
-const X_ATUAL = 960;
-const Y_ATUAL = 110;
-const TAMANHO_ATUAL = 200;
-
-// Tela "Peças": mostra o catálogo e o baralho usando só as classes de src/jogo.
+// Tela "Peças": os 24 tipos do catálogo como na folha de arte. Clicar numa peça gira a peça.
 export class CenaCatalogo extends Phaser.Scene {
-  private baralho!: TileDeck;
-  private atual!: Tile;
-  private origemAtual = '';
-  private desenhoAtual!: Phaser.GameObjects.Container;
-  private textoRestantes!: Phaser.GameObjects.Text;
-  private textoNome!: Phaser.GameObjects.Text;
-  private textoDetalhes!: Phaser.GameObjects.Text;
-  private textoComprar!: Phaser.GameObjects.Text;
-
   constructor() {
     super(CENAS.pecas);
   }
 
   create(): void {
-    criarCabecalho(this, 'Peças', 'Clique numa peça para girá-la.');
+    desenharFundoPontilhado(this);
+    criarTituloDaTela(this, 'Peças do tabuleiro');
 
-    this.criarCatalogo();
-    this.criarPainelDoBaralho();
-    this.criarLegenda();
-    this.novoBaralho();
-
-    this.input.keyboard?.on('keydown-R', () => this.girarAtual());
-    this.input.keyboard?.on('keydown-SPACE', () => this.comprar());
-  }
-
-  private criarCatalogo(): void {
-    const colunas = 6;
-    const largura = 135;
-    const altura = 150;
-    const tamanho = 96;
-    const fabrica = new TileFactory();
-
-    CATALOGO_DE_TILES.forEach(({ definicao, quantidade }, i) => {
-      const cx = 40 + (i % colunas) * largura;
-      const cy = 104 + Math.floor(i / colunas) * altura;
-      const x = cx + (largura - tamanho) / 2 - 8;
-      const tile = fabrica.criarTile(definicao);
-
-      const destaque = this.add.graphics();
-      const desenho = criarPeca(this, tile, x, cy, tamanho);
-
-      const rotulo = this.add.text(x + tamanho / 2, cy + tamanho + 6, `${nomeDaPeca(definicao.id)}  ×${quantidade}`, {
-        ...estilo(12, COR_TEXTO_FRACO),
-        align: 'center',
-        wordWrap: { width: largura - 12 },
-      });
-      rotulo.setOrigin(0.5, 0);
-
-      const area = this.add.zone(x, cy, tamanho, tamanho).setOrigin(0).setInteractive({ useHandCursor: true });
-      area.on('pointerover', () => {
-        destaque.clear().lineStyle(3, COR_DESTAQUE, 1).strokeRect(x - 3, cy - 3, tamanho + 6, tamanho + 6);
-        rotulo.setColor(COR_TEXTO);
-      });
-      area.on('pointerout', () => {
-        destaque.clear();
-        rotulo.setColor(COR_TEXTO_FRACO);
-      });
-      area.on('pointerdown', () => {
-        tile.rotacionar();
-        desenho.removeAll(true);
-        desenharPeca(this, desenho, tile, x, cy, tamanho);
-      });
-    });
-  }
-
-  private criarPainelDoBaralho(): void {
-    const x0 = 880;
-    const largura = 360;
-    this.add.graphics().fillStyle(COR_PAINEL, 1).fillRoundedRect(x0, 26, largura, 560, 12);
-
-    this.add.text(x0 + 24, 44, 'Baralho', estilo(22, COR_TEXTO, true));
-    this.textoRestantes = this.add.text(x0 + 24, 76, '', estilo(15, COR_TEXTO_FRACO));
-
-    this.desenhoAtual = this.add.container(0, 0);
+    const total = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
     this.add
-      .zone(X_ATUAL, Y_ATUAL, TAMANHO_ATUAL, TAMANHO_ATUAL)
+      .text(
+        1240,
+        34,
+        `${CATALOGO_DE_TILES.length} tipos e ${total} peças, no mesmo esquema do Carcassonne. A letra é o código do tipo, ` +
+          'e o número, quantas cópias vão no baralho. Clique numa peça para girá-la.',
+        { ...estilo(13, CREME_FRACO, true), align: 'right', lineSpacing: 5, wordWrap: { width: 560 } },
+      )
+      .setOrigin(1, 0);
+
+    const ordenadas = [...CATALOGO_DE_TILES].sort((a, b) => ARTE_DAS_PECAS[a.definicao.id].quadro - ARTE_DAS_PECAS[b.definicao.id].quadro);
+    ordenadas.forEach((entrada, i) => this.criarCartao(entrada.definicao.id, entrada.quantidade, i));
+    this.criarLegenda();
+  }
+
+  private criarCartao(id: string, quantidade: number, i: number): void {
+    const { colunas, largura, altura, espaco } = GRADE;
+    const x = GRADE.x + (i % colunas) * (largura + espaco);
+    const y = GRADE.y + Math.floor(i / colunas) * (altura + espaco);
+    const inicial = id === ID_TILE_INICIAL;
+    const arte = ARTE_DAS_PECAS[id];
+
+    const fundo = this.add.graphics();
+    const pintar = (sobre: boolean) => {
+      fundo.clear().fillStyle(COR_ESCURA, sobre ? 0.9 : 0.7).fillRoundedRect(x, y, largura, altura, 10);
+      fundo.lineStyle(1, sobre ? COR_LARANJA : 0xffffff, sobre ? 0.7 : 0.08).strokeRoundedRect(x, y, largura, altura, 10);
+    };
+    pintar(false);
+
+    // Girada para mostrar o quadro como está na folha.
+    const definicao = CATALOGO_DE_TILES.find((e) => e.definicao.id === id)!.definicao;
+    const tile = new Tile(`catalogo-${id}`, definicao);
+    tile.definirRotacao((4 - arte.giro) % 4);
+    const xPeca = x + (largura - TAMANHO_DA_PECA) / 2;
+    const yPeca = y + 22;
+    const desenho = this.add.container(0, 0);
+    desenharPeca(this, desenho, tile, xPeca, yPeca, TAMANHO_DA_PECA);
+
+    this.add.graphics().fillStyle(0x1b100c, 0.92).fillRoundedRect(x + 8, y + 8, 20, 19, 5);
+    this.add.text(x + 18, y + 17.5, LETRAS[arte.quadro], estilo(12, CREME, true)).setOrigin(0.5);
+    this.add.text(x + largura - 9, y + 13, `×${quantidade}`, estilo(12, CREME_FRACO, true)).setOrigin(1, 0.5);
+
+    const [nome, detalhe] = NOMES[id] ?? [id, ''];
+    this.add.text(x + largura / 2, y + 137, nome, estilo(13, CREME, true)).setOrigin(0.5);
+    this.add
+      .text(x + largura / 2, y + 155, inicial ? `${detalhe} · inicial` : detalhe, estilo(11, CREME_FRACO))
+      .setOrigin(0.5);
+
+    this.add
+      .zone(x, y, largura, altura)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.girarAtual());
-
-    const yTexto = Y_ATUAL + TAMANHO_ATUAL;
-    this.textoNome = this.add.text(x0 + 24, yTexto + 16, '', estilo(18, COR_TEXTO, true));
-    this.textoDetalhes = this.add.text(x0 + 24, yTexto + 46, '', {
-      ...estilo(14, COR_TEXTO_FRACO),
-      lineSpacing: 6,
-      wordWrap: { width: largura - 48 },
-    });
-
-    this.textoComprar = criarBotao(this, x0 + 24, 520, 150, 44, 'Comprar peça', () => this.comprar());
-    criarBotao(this, x0 + 186, 520, 150, 44, 'Novo baralho', () => this.novoBaralho());
+      .on('pointerover', () => pintar(true))
+      .on('pointerout', () => pintar(false))
+      .on('pointerdown', () => {
+        tile.rotacionar();
+        desenho.removeAll(true);
+        desenharPeca(this, desenho, tile, xPeca, yPeca, TAMANHO_DA_PECA);
+      });
   }
 
   private criarLegenda(): void {
-    const itens: [number, string][] = [
-      [CORES.habitat, 'Habitat'],
-      [CORES.duto, 'Duto'],
-      [CORES.solo, 'Solo'],
-      [CORES.estufa, 'Estufa'],
-      [CORES.cristal, 'Cristal'],
-    ];
-    const g = this.add.graphics();
-    itens.forEach(([cor, nome], i) => {
-      const x = 880 + (i % 3) * 120;
-      const y = 612 + Math.floor(i / 3) * 30;
-      g.fillStyle(cor, 1).fillRoundedRect(x, y, 18, 18, 4);
-      this.add.text(x + 26, y, nome, estilo(14, COR_TEXTO_FRACO));
+    const [x0, y0, largura, altura] = [40, 654, 1200, 54];
+    this.add
+      .graphics()
+      .fillStyle(0x24160f, 0.85)
+      .fillRoundedRect(x0, y0, largura, altura, 12)
+      .lineStyle(1, 0xffffff, 0.08)
+      .strokeRoundedRect(x0, y0, largura, altura, 12);
+
+    const passo = largura / LEGENDA.length;
+    LEGENDA.forEach(([titulo, detalhe, quadro, [cx, cy, lado], cor], i) => {
+      const x = x0 + 18 + i * passo;
+      const y = y0 + 9;
+      const icone = 36;
+      if (this.textures.exists(CHAVE_DAS_PECAS)) {
+        const escala = icone / lado;
+        this.add.image(x - cx * escala, y - cy * escala, CHAVE_DAS_PECAS, quadro).setOrigin(0).setScale(escala).setCrop(cx, cy, lado, lado);
+      } else {
+        this.add.graphics().fillStyle(cor, 1).fillRect(x, y, icone, icone);
+      }
+      this.add.graphics().lineStyle(1, 0x000000, 0.5).strokeRect(x, y, icone, icone);
+      this.add.text(x + 48, y + 9, titulo, estilo(13, CREME, true)).setOrigin(0, 0.5);
+      this.add.text(x + 48, y + 27, detalhe, estilo(11, CREME_FRACO)).setOrigin(0, 0.5);
     });
-    this.add.text(880, 676, 'Teclas: R gira · Espaço compra · Esc volta', estilo(13, COR_TEXTO_FRACO));
-  }
-
-  private novoBaralho(): void {
-    this.baralho = new TileFactory().criarBaralho(CATALOGO_DE_TILES, ID_TILE_INICIAL);
-    this.mostrar(this.baralho.getTileInicial(), 'Peça inicial');
-  }
-
-  private comprar(): void {
-    const tile = this.baralho.comprarTile();
-    if (tile) {
-      this.mostrar(tile, 'Peça comprada');
-    }
-  }
-
-  private girarAtual(): void {
-    this.atual.rotacionar();
-    this.mostrar(this.atual);
-  }
-
-  private mostrar(tile: Tile, origem?: string): void {
-    this.atual = tile;
-    if (origem) {
-      this.origemAtual = origem;
-    }
-
-    this.desenhoAtual.removeAll(true);
-    desenharPeca(this, this.desenhoAtual, tile, X_ATUAL, Y_ATUAL, TAMANHO_ATUAL);
-
-    const definicao = tile.getDefinicao();
-    this.textoNome.setText(nomeDaPeca(definicao.id));
-
-    const lados = SIGLAS_LADO.map(([d, sigla]) => `${sigla}: ${descreverLado(tile, d)}`).join(' · ');
-    const extras = [definicao.temEstufa() && 'estufa', definicao.temCristal() && 'cristal'].filter(Boolean);
-    this.textoDetalhes.setText(
-      [
-        `${this.origemAtual} · ${tile.id} · rotação ${tile.getRotacao() * 90}°`,
-        `Lados: ${lados}`,
-        `Regiões: ${tile.getRegioes().length}${extras.length ? ` · tem ${extras.join(' e ')}` : ''}`,
-      ].join('\n'),
-    );
-
-    const restantes = this.baralho.quantidadeRestante();
-    this.textoRestantes.setText(restantes === 0 ? 'Baralho vazio' : `Restam ${restantes} peças na pilha`);
-    this.textoComprar.setText(restantes === 0 ? 'Acabou' : 'Comprar peça');
   }
 }

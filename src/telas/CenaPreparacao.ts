@@ -1,6 +1,22 @@
 import Phaser from 'phaser';
 import { MAX_JOGADORES, MIN_JOGADORES, TAMANHO_MAXIMO_DO_NOME, TipoDeJogador } from '../jogo/Jogador';
-import { ARQUIVO_DA_CAPA, CAPA_DO_MENU, CENAS, CORES_DOS_JOGADORES, FONTE, FONTE_TITULO, NOMES_DOS_TIPOS, corCss } from './ui';
+import {
+  ARQUIVO_DA_CAPA,
+  CAPA_DO_MENU,
+  CENAS,
+  CORES_DOS_JOGADORES,
+  CREME,
+  CREME_FRACO,
+  FONTE,
+  FONTE_TITULO,
+  LARANJA,
+  NOMES_DOS_TIPOS,
+  corCss,
+  criarBotaoMenu,
+  desenharArco,
+  desenharAvatar,
+  desenharFundoDaCapa,
+} from './ui';
 
 // O que a CenaTabuleiro recebe para montar a partida.
 export interface ConfiguracaoDeJogador {
@@ -42,16 +58,10 @@ function vagasIniciais(): Vaga[] {
 }
 
 const LARGURA = 1280;
-const ALTURA = 720;
 
 // Cores da tela, em tons de Marte para combinar com a capa.
-const CREME = '#f6ead8';
-const CREME_FRACO = '#d9c7b4';
-const LARANJA = '#e8834f';
-const COR_LARANJA = 0xd9643a;
 const COR_PAINEL = 0x24160f;
 const COR_LINHA = 0x3a2419;
-const COR_ESCURA = 0x2a1a14;
 
 // Painel "Tripulação" e linhas das vagas.
 const PAINEL = { x: 201, y: 159, largura: 878, altura: 380 };
@@ -98,14 +108,6 @@ function iconeTroca(g: Phaser.GameObjects.Graphics, x: number, y: number, cor: n
   g.lineBetween(x + 6, y + 3, x - 6, y + 3).lineBetween(x - 6, y + 3, x - 3, y + 6);
 }
 
-// Avatar da vaga: círculo na cor do jogador com um capacete de astronauta.
-function avatar(g: Phaser.GameObjects.Graphics, x: number, y: number, cor: number, alfa: number): void {
-  g.fillStyle(cor, alfa).fillCircle(x, y, 18);
-  g.lineStyle(2.6, COR_ESCURA, alfa).strokeCircle(x, y - 2, 8.5);
-  g.fillStyle(COR_ESCURA, alfa).fillRoundedRect(x - 5, y - 4.5, 10, 5, 2);
-  g.fillRoundedRect(x - 8, y + 9, 16, 5, 2);
-}
-
 // Contorno tracejado de um retângulo (para a vaga fora da partida).
 function retanguloTracejado(g: Phaser.GameObjects.Graphics, x: number, y: number, l: number, a: number, cor: number): void {
   g.lineStyle(1.2, cor, 0.7);
@@ -146,7 +148,7 @@ export class CenaPreparacao extends Phaser.Scene {
     const salvas = this.registry.get(CHAVE_DO_REGISTRO) as Vaga[] | undefined;
     this.vagas = salvas ? salvas.map((v) => ({ ...v })) : vagasIniciais();
 
-    this.desenharFundo();
+    desenharFundoDaCapa(this);
     this.desenharCabecalho();
     this.desenharPainel();
     this.vagas.forEach((_, i) => this.criarLinha(i));
@@ -163,32 +165,8 @@ export class CenaPreparacao extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.scene.start(CENAS.menu));
   }
 
-  // A capa do menu, desfocada e escurecida, atrás de tudo.
-  private desenharFundo(): void {
-    const capa = this.add.image(LARGURA / 2, ALTURA / 2, CAPA_DO_MENU);
-    capa.setScale(Math.max(LARGURA / capa.width, ALTURA / capa.height) * 1.04);
-    capa.enableFilters();
-    capa.filters?.internal.addBlur(1, 1.5, 1.5, 1);
-    this.add.rectangle(0, 0, LARGURA, ALTURA, 0x120a07, 0.42).setOrigin(0);
-  }
-
   private desenharCabecalho(): void {
-    // Botão "‹ Menu".
-    const g = this.add.graphics();
-    const pintar = (sobre: boolean) => {
-      g.clear().fillStyle(COR_ESCURA, sobre ? 0.95 : 0.8).fillRoundedRect(38, 31, 97, 42, 10);
-      g.lineStyle(1.2, 0xc98a63, sobre ? 0.9 : 0.45).strokeRoundedRect(38, 31, 97, 42, 10);
-      g.lineStyle(2, 0xf6ead8, 1).lineBetween(62, 47, 57, 52).lineBetween(57, 52, 62, 57);
-    };
-    pintar(false);
-    this.add.text(78, 52, 'Menu', estiloTexto(15, CREME, true)).setOrigin(0, 0.5);
-    this.add
-      .zone(38, 31, 97, 42)
-      .setOrigin(0)
-      .setInteractive({ useHandCursor: true })
-      .on('pointerover', () => pintar(true))
-      .on('pointerout', () => pintar(false))
-      .on('pointerdown', () => this.scene.start(CENAS.menu));
+    criarBotaoMenu(this);
 
     this.add
       .text(LARGURA / 2, 31, 'MARS CONQUEST', estiloTexto(13, LARANJA, true, FONTE_TITULO))
@@ -199,16 +177,7 @@ export class CenaPreparacao extends Phaser.Scene {
       .setOrigin(0.5)
       .setShadow(0, 3, '#000000', 8, false, true);
 
-    // Arco laranja com a "lua" na ponta, como no logotipo da capa.
-    const arco = this.add.graphics();
-    const curva = new Phaser.Curves.QuadraticBezier(
-      new Phaser.Math.Vector2(495, 113),
-      new Phaser.Math.Vector2(640, 88),
-      new Phaser.Math.Vector2(778, 104),
-    );
-    arco.lineStyle(2.5, COR_LARANJA, 1);
-    curva.draw(arco, 40);
-    arco.fillStyle(COR_LARANJA, 1).fillCircle(778, 104, 5);
+    desenharArco(this, [495, 113], [640, 88], [778, 104], 5);
 
     this.add
       .text(LARGURA / 2, 130, `De ${MIN_JOGADORES} a ${MAX_JOGADORES} jogadores. Clique no tipo para trocar.`,
@@ -283,7 +252,7 @@ export class CenaPreparacao extends Phaser.Scene {
       fundo.clear();
       fundo.fillStyle(COR_LINHA, ativa ? 0.6 : 0.3).fillRoundedRect(X_LINHA, y, LARGURA_LINHA, ALTURA_LINHA, 10);
       fundo.lineStyle(1, 0xffffff, ativa ? 0.09 : 0.05).strokeRoundedRect(X_LINHA, y, LARGURA_LINHA, ALTURA_LINHA, 10);
-      avatar(fundo, 256, meio, cor, ativa ? 1 : 0.45);
+      desenharAvatar(fundo, 256, meio, cor, ativa ? 1 : 0.45);
 
       const [bx, by] = [BOTAO_TIPO.x, meio - BOTAO_TIPO.altura / 2];
       botao.clear();

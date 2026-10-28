@@ -40,8 +40,84 @@ export const COR_DESTAQUE = 0xffb454;
 const COR_BOTAO = 0x343946;
 const COR_BOTAO_SOBRE = 0x4a5162;
 
-export function estilo(tamanho: number, cor = COR_TEXTO, negrito = false): Phaser.Types.GameObjects.Text.TextStyle {
-  return { fontFamily: FONTE, fontSize: `${tamanho}px`, color: cor, fontStyle: negrito ? 'bold' : 'normal', resolution: 2 };
+export function estilo(tamanho: number, cor = COR_TEXTO, negrito = false, fonte = FONTE): Phaser.Types.GameObjects.Text.TextStyle {
+  return { fontFamily: fonte, fontSize: `${tamanho}px`, color: cor, fontStyle: negrito ? 'bold' : 'normal', resolution: 2 };
+}
+
+// Tons de Marte das telas no estilo da capa (Nova partida, Peças, Regras, Créditos).
+export const CREME = '#f6ead8';
+export const CREME_FRACO = '#d9c7b4';
+export const LARANJA = '#e8834f';
+export const COR_LARANJA = 0xd9643a;
+export const COR_ESCURA = 0x2a1a14;
+
+// A capa do menu, desfocada e escurecida, atrás de tudo. A cena precisa ter carregado CAPA_DO_MENU.
+export function desenharFundoDaCapa(cena: Phaser.Scene): void {
+  const { width, height } = cena.scale;
+  const capa = cena.add.image(width / 2, height / 2, CAPA_DO_MENU);
+  capa.setScale(Math.max(width / capa.width, height / capa.height) * 1.04);
+  capa.enableFilters();
+  capa.filters?.internal.addBlur(1, 1.5, 1.5, 1);
+  cena.add.rectangle(0, 0, width, height, 0x120a07, 0.42).setOrigin(0);
+}
+
+// Fundo marrom escuro com uma grade discreta de pontos.
+export function desenharFundoPontilhado(cena: Phaser.Scene): void {
+  const { width, height } = cena.scale;
+  const g = cena.add.graphics().fillStyle(0x1b100c, 1).fillRect(0, 0, width, height);
+  g.fillStyle(0xffffff, 0.035);
+  for (let y = 14; y < height; y += 28) {
+    for (let x = 14; x < width; x += 28) g.fillCircle(x, y, 1);
+  }
+}
+
+// Arco laranja com a "lua" na ponta, como no logotipo da capa.
+export function desenharArco(cena: Phaser.Scene, inicio: [number, number], controle: [number, number], fim: [number, number], lua = 4): void {
+  const arco = cena.add.graphics();
+  new Phaser.Curves.QuadraticBezier(new Phaser.Math.Vector2(...inicio), new Phaser.Math.Vector2(...controle), new Phaser.Math.Vector2(...fim))
+    .draw(arco.lineStyle(2.5, COR_LARANJA, 1), 40);
+  arco.fillStyle(COR_LARANJA, 1).fillCircle(fim[0], fim[1], lua);
+}
+
+// Botão "‹ Menu", "MARS CONQUEST" e o título da tela com o arco embaixo, alinhados à esquerda. Esc volta ao menu.
+export function criarTituloDaTela(cena: Phaser.Scene, titulo: string): void {
+  criarBotaoMenu(cena);
+  cena.add.text(160, 28, 'MARS CONQUEST', estilo(13, LARANJA, true, FONTE_TITULO)).setLetterSpacing(6).setOrigin(0, 0.5);
+  const texto = cena.add
+    .text(158, 56, titulo, estilo(40, CREME, true, FONTE_TITULO))
+    .setOrigin(0, 0.5)
+    .setShadow(0, 3, '#000000', 8, false, true);
+  // Arco mais curto que títulos longos e mais comprido que os curtos.
+  const fim = 162 + Math.max(texto.width * 0.7, 190);
+  desenharArco(cena, [162, 84], [(162 + fim) / 2, 74], [fim, 88]);
+  cena.input.keyboard?.on('keydown-ESC', () => cena.scene.start(CENAS.menu));
+}
+
+// Avatar de jogador: círculo na cor dele com um capacete de astronauta.
+export function desenharAvatar(g: Phaser.GameObjects.Graphics, x: number, y: number, cor: number, alfa = 1, escala = 1): void {
+  g.fillStyle(cor, alfa).fillCircle(x, y, 18 * escala);
+  g.lineStyle(2.6 * escala, COR_ESCURA, alfa).strokeCircle(x, y - 2 * escala, 8.5 * escala);
+  g.fillStyle(COR_ESCURA, alfa).fillRoundedRect(x - 5 * escala, y - 4.5 * escala, 10 * escala, 5 * escala, 2 * escala);
+  g.fillRoundedRect(x - 8 * escala, y + 9 * escala, 16 * escala, 5 * escala, 2 * escala);
+}
+
+// Botão "‹ Menu" das telas no estilo da capa.
+export function criarBotaoMenu(cena: Phaser.Scene): void {
+  const g = cena.add.graphics();
+  const pintar = (sobre: boolean) => {
+    g.clear().fillStyle(0x2a1a14, sobre ? 0.95 : 0.8).fillRoundedRect(38, 31, 97, 42, 10);
+    g.lineStyle(1.2, 0xc98a63, sobre ? 0.9 : 0.45).strokeRoundedRect(38, 31, 97, 42, 10);
+    g.lineStyle(2, 0xf6ead8, 1).lineBetween(62, 47, 57, 52).lineBetween(57, 52, 62, 57);
+  };
+  pintar(false);
+  cena.add.text(78, 52, 'Menu', estilo(15, '#f6ead8', true)).setOrigin(0, 0.5);
+  cena.add
+    .zone(38, 31, 97, 42)
+    .setOrigin(0)
+    .setInteractive({ useHandCursor: true })
+    .on('pointerover', () => pintar(true))
+    .on('pointerout', () => pintar(false))
+    .on('pointerdown', () => cena.scene.start(CENAS.menu));
 }
 
 export const NOMES_DOS_TIPOS: Record<TipoDeJogador, string> = {
@@ -85,17 +161,6 @@ export function criarBotao(
     .on('pointerout', () => pintar(COR_BOTAO, false))
     .on('pointerdown', acao);
   return rotulo;
-}
-
-// Botão "Menu", título da tela e Esc para voltar ao menu.
-export function criarCabecalho(cena: Phaser.Scene, titulo: string, subtitulo?: string): void {
-  const voltar = () => cena.scene.start(CENAS.menu);
-  criarBotao(cena, 40, 32, 100, 36, '← Menu', voltar, 14);
-  cena.add.text(160, 26, titulo, estilo(30, COR_TEXTO, true));
-  if (subtitulo) {
-    cena.add.text(162, 66, subtitulo, estilo(15, COR_TEXTO_FRACO));
-  }
-  cena.input.keyboard?.on('keydown-ESC', voltar);
 }
 
 export function definicaoPorId(id: string) {
