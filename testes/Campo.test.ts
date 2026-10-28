@@ -41,7 +41,7 @@ function campoDaContagem(partida: Partida, turno: ReturnType<Partida['jogar']>) 
   return turno.contagemFinal.filter((c) => c.feature.tipo === SOIL);
 }
 
-describe('Campo: colono deitado no solo', () => {
+describe('Campo: colono no solo (desenhado como marciano)', () => {
   it('o solo aceita marcador, e o campo ocupado não aceita outro', () => {
     const partida = new Partida(jogadores(), baralho(soloPuro, habitatNorte, soloPuro, soloPuro));
     partida.colocarPeca(jogada(1, 0));

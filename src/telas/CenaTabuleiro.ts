@@ -59,8 +59,8 @@ interface OpcaoDeMarcador {
   readonly regiaoId: string;
   readonly x: number;
   readonly y: number;
-  // No solo, o marcador fica deitado, com a cabeça para dentro da peça.
-  readonly deitado?: 'cabeca-a-esquerda' | 'cabeca-a-direita';
+  // No solo (fora do habitat), o marcador aparece como marciano.
+  readonly marciano: boolean;
 }
 
 // A primeira rotação da lista a partir de "inicio", girando no sentido horário.
@@ -72,16 +72,10 @@ function proximaRotacao(rotacoes: readonly number[], inicio: number): number {
   throw new Error('A peça não encaixa nesta posição.');
 }
 
-// No campo, o colono deita com a cabeça para o lado do centro da peça (u é a posição na peça, de 0 a 1).
-function poseNoCampo(tipo: Terrain, u: number): 'cabeca-a-esquerda' | 'cabeca-a-direita' | undefined {
-  if (tipo !== Terrain.SOIL) return undefined;
-  return u < 0.5 ? 'cabeca-a-direita' : 'cabeca-a-esquerda';
-}
-
-// Com o artigo: "num habitat", "num duto", "numa estufa", "deitado num campo".
+// Com o artigo: "num habitat", "num duto", "numa estufa", "num campo, como marciano".
 function numTerreno(tipo: Terrain): string {
   if (tipo === Terrain.GREENHOUSE) return 'numa estufa';
-  if (tipo === Terrain.SOIL) return 'deitado num campo';
+  if (tipo === Terrain.SOIL) return 'num campo, como marciano';
   return tipo === Terrain.HABITAT ? 'num habitat' : 'num duto';
 }
 
@@ -236,7 +230,7 @@ export class CenaTabuleiro extends Phaser.Scene {
           regiaoId: r.id,
           x: (posicaoDaPeca.x + u) * TAMANHO_PECA,
           y: (posicaoDaPeca.y + v) * TAMANHO_PECA,
-          deitado: poseNoCampo(r.tipo, u),
+          marciano: r.tipo === Terrain.SOIL,
         };
       });
     this.atualizar();
@@ -425,7 +419,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     const [u, v] = ancorasDasRegioes(m.tile.getRegioes()).get(regiao.id)!;
     const p = m.tile.getPosicao()!;
     const g = this.add.graphics().setDepth(5);
-    desenharMarcador(g, m.tipo, m.dono.cor, (p.x + u) * TAMANHO_PECA, (p.y + v) * TAMANHO_PECA, TAMANHO_PECA, poseNoCampo(regiao.tipo, u));
+    desenharMarcador(g, m.tipo, m.dono.cor, (p.x + u) * TAMANHO_PECA, (p.y + v) * TAMANHO_PECA, TAMANHO_PECA, regiao.tipo === Terrain.SOIL);
     this.desenhosDosMarcadores.set(m, g);
   }
 
@@ -632,7 +626,7 @@ export class CenaTabuleiro extends Phaser.Scene {
       if (!opcao) return;
       const cor = this.partida.getJogadorDaVez().cor;
       const g = this.add.graphics();
-      desenharMarcador(g, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA, opcao.deitado);
+      desenharMarcador(g, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA, opcao.marciano);
       this.fantasma.add(g);
       return;
     }

@@ -50,7 +50,7 @@ const PONTUACAO: [string | null, string, string, string][] = [
   ['habitat-canto-cristal', 'Habitat', '1 por peça · 2 com cristal', 'Fechado (sem lado aberto), vale o dobro e pontua na hora; aberto, pontua na contagem final.'],
   ['duto-curva', 'Duto', '1 por peça', 'Completo (pontas numa estufa, bomba ou habitat, ou em circuito), pontua na hora; incompleto, na contagem final.'],
   ['estufa-duto', 'Estufa', '1 + 1 por peça em volta', 'Conta as 8 casas em volta. Cercada, pontua na hora (9); senão, na contagem final.'],
-  [null, 'Campo', '2 por habitat fechado em volta', 'O solo ligado entre peças forma um campo, com o colono deitado. Só pontua no fim: 2 por habitat fechado que encosta nele.'],
+  [null, 'Campo', '2 por habitat fechado em volta', 'O solo ligado entre peças forma um campo, onde o colono vira marciano. Só pontua no fim: 2 por habitat fechado que encosta nele.'],
 ];
 
 // Ícones desenhados com linhas; (x, y) é o centro.
@@ -238,7 +238,7 @@ export class CenaRegras extends Phaser.Scene {
       desenharPecaIlustrativa(this, SO_SOLO, 0, x, y, tamanho);
     }
     this.add.graphics().lineStyle(1, 0x000000, 0.5).strokeRect(x, y, tamanho, tamanho);
-    // No campo, o colono deitado.
-    if (!peca) desenharMarcador(this.add.graphics(), TipoDeMarcador.COLONO, CORES_DOS_JOGADORES[0], x + tamanho / 2 + 6, y + tamanho / 2, 120, 'cabeca-a-esquerda');
+    // No campo, o colono aparece como marciano.
+    if (!peca) desenharMarcador(this.add.graphics(), TipoDeMarcador.COLONO, CORES_DOS_JOGADORES[0], x + tamanho / 2, y + tamanho / 2 + 4, 120, true);
   }
 }

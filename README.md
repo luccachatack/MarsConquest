@@ -26,7 +26,7 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 - Marcador grande incluído.
 - Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação (habitat, duto, estufa e campo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md). No campo, o colono fica deitado e só pontua no fim, 2 por habitat fechado que encosta nele.
+Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação (habitat, duto, estufa e campo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md). No campo, o colono aparece como marciano e só pontua no fim, 2 por habitat fechado que encosta nele.
 
 ## O que tem em cada pasta e arquivo
 
@@ -205,7 +205,7 @@ Em **Jogar**, a tela **Nova partida** mostra a tripulação sobre a capa desfoca
 Na partida, o tabuleiro ocupa a tela toda e os painéis ficam por cima (`CenaPainelTabuleiro`). No topo, um cartão por jogador mostra pontos e reserva (os pontinhos são os colonos; o maior, o chefe), com o da vez destacado. No canto superior esquerdo ficam o botão de opções (≡: continuar, nova partida, trocar jogadores e voltar ao menu principal, sempre com confirmação antes de abandonar a partida) e o de centralizar a câmera. No canto superior direito fica quantas peças restam no baralho; as descartadas só aparecem, ao lado, depois do primeiro descarte. No canto inferior esquerdo ficam os últimos acontecimentos; um clique abre o registro com tudo o que aconteceu na partida. No canto inferior direito ficam de quem é a vez, a peça e os botões da etapa. Cada turno tem duas etapas:
 
 1. **Peça:** as posições tracejadas são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia. Um clique põe a peça sobre a casa, ainda sem colocar: se ela encaixar ali de mais de um jeito, **Girar** (`R`, ou clique de novo na peça) passa só pelos jeitos que servem; **Voltar** (`Backspace`) desfaz a escolha, e clicar em outra casa tracejada muda a escolha. **Confirmar** (`Enter`) coloca a peça.
-2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador, inclusive o solo. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. No solo, o marcador fica deitado no campo até o fim da partida. Se nenhuma região aceita marcador, o turno termina sozinho.
+2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador, inclusive o solo. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. No solo, o marcador aparece como um marciano na cor do jogador (o chefe, com três olhos) e fica no campo até o fim da partida. Se nenhuma região aceita marcador, o turno termina sozinho.
 
 Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, as construções abertas com marcador pontuam (contagem final) e aparece a classificação. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
