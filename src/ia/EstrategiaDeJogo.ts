@@ -4,7 +4,7 @@ import type { EscolhaDeMarcador } from '../jogo/EstadoDaPartida';
 import type { Jogada } from '../jogo/Jogada';
 import { TipoDeJogador, type Jogador } from '../jogo/Jogador';
 import { donosDaMaioria, TipoDeMarcador } from '../jogo/Marcador';
-import { pontosPrevistos } from '../jogo/Pontuacao';
+import { pontosDaConstrucao, pontosPrevistos } from '../jogo/Pontuacao';
 import type { Tile } from '../jogo/Tile';
 import type { FuncaoAleatoria } from '../jogo/TileDeck';
 
@@ -54,8 +54,9 @@ const CUSTO_DO_MARCADOR: Record<TipoDeMarcador, number> = {
   [TipoDeMarcador.CHEFE]: 3,
 };
 const CUSTO_DA_RESERVA_BAIXA = 2;
-// Uma construção aberta vale menos que uma completa: pode nunca fechar e, aberta, vale 0.
-const PESO_DA_CONSTRUCAO_ABERTA = 0.5;
+// Chance estimada de uma construção aberta ainda fechar: o bônus de fechar (habitat em dobro)
+// conta só por essa fração; o valor de aberta já é garantido na contagem final.
+const CHANCE_DE_FECHAR = 0.5;
 const PESO_DOS_PONTOS_DOS_OUTROS = 0.5;
 
 // Difícil: avalia cada jogada com cada escolha de marcador e fica com a melhor.
@@ -104,7 +105,8 @@ export class EstrategiaGulosa implements EstrategiaDeJogo {
         valor -= PESO_DOS_PONTOS_DOS_OUTROS * pontos * outros;
       } else if (meu) {
         const reservaBaixa = eu.totalDisponivel() <= 2 ? CUSTO_DA_RESERVA_BAIXA : 0;
-        valor += PESO_DA_CONSTRUCAO_ABERTA * pontos - CUSTO_DO_MARCADOR[meu.tipo] - reservaBaixa;
+        const seFechar = pontosDaConstrucao(c.tipo, c.quantidadeDeTiles, c.quantidadeDeCristais, true);
+        valor += pontos + CHANCE_DE_FECHAR * (seFechar - pontos) - CUSTO_DO_MARCADOR[meu.tipo] - reservaBaixa;
       } else if (donos.includes(eu)) {
         valor += 0.5; // aumenta uma construção minha
       } else if (outros > 0) {

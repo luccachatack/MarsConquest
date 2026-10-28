@@ -26,6 +26,10 @@ const habitatNorte = new DefinicaoTile('habitat-norte', [
   { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
   { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6, 7, 8, 9, 10, 11] },
 ]);
+const habitatNorteCristal = new DefinicaoTile('habitat-norte-cristal', [
+  { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2], cristal: true },
+  { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6, 7, 8, 9, 10, 11] },
+]);
 const ponte = new DefinicaoTile('ponte', [
   { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 6, 7, 8] },
   { id: 's1', tipo: SOIL, pontos: [3, 4, 5] },
@@ -245,6 +249,34 @@ describe('Partida: marcadores', () => {
   });
 });
 
+describe('Partida: contagem final (RN09)', () => {
+  it('as construções abertas com marcador pontuam para a maioria, e os marcadores ficam', () => {
+    const partida = new Partida(
+      jogadores('Ana', 'Bia'),
+      baralho(soloPuro, habitatNorteCristal, habitatNorte),
+    );
+    const [ana, bia] = partida.getJogadores();
+    expect(partida.jogar(jogada(0, -1), colono()).contagemFinal).toEqual([]);
+    const ultimo = partida.jogar(jogada(1, 0), colono());
+
+    expect(partida.estaEncerrada()).toBe(true);
+    expect(ultimo.contagemFinal).toHaveLength(2);
+    // Habitat aberto: 1 por peça, 2 na peça com cristal.
+    expect(ana.getPontos()).toBe(2);
+    expect(bia.getPontos()).toBe(1);
+    // Os marcadores não voltam: o desempate usa a reserva de antes da contagem final.
+    expect(partida.getMarcadoresNoTabuleiro()).toHaveLength(2);
+    expect(ana.disponiveis(COLONO)).toBe(5);
+  });
+
+  it('construção aberta sem marcador não pontua no fim', () => {
+    const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, habitatNorte));
+    const ultimo = partida.jogar(jogada(0, -1));
+    expect(ultimo.contagemFinal).toEqual([]);
+    expect(partida.getJogadores().map((j) => j.getPontos())).toEqual([0, 0]);
+  });
+});
+
 describe('Partida: posições sem encaixe', () => {
   it('considera a peça da vez e as do baralho, e não a peça já colocada', () => {
     // Em cima do habitat inicial só um habitat serve. A peça da vez é um habitat; o baralho, só solo.
@@ -304,7 +336,7 @@ describe('Partida simulada entre computadores', () => {
         const { jogada, marcador } = estrategias.get(jogador)!.decidir(partida.getBoard(), partida.getPecaAtual()!, jogador);
         const turno = partida.jogar(jogada, marcador);
         if (turno.marcador) marcadoresColocados++;
-        for (const c of turno.concluidas) pontosDasConstrucoes += c.pontos * c.donos.length;
+        for (const c of [...turno.concluidas, ...turno.contagemFinal]) pontosDasConstrucoes += c.pontos * c.donos.length;
 
         // RNF07: cada marcador está na reserva ou no tabuleiro, nunca nos dois nem em nenhum.
         for (const j of partida.getJogadores()) {

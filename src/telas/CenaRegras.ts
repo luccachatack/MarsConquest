@@ -20,7 +20,7 @@ const COMO_JOGAR: [string, string][] = [
       'Quando ela fica completa, quem tem mais força nela (colono 1, chefe 2) ganha os pontos; no empate, todos ganham. ' +
       'Os marcadores voltam para a reserva. Construção completa sem marcador não dá pontos.',
   ],
-  ['Fim da partida', 'Quando o baralho acaba. Vence quem tiver mais pontos; no empate, quem tiver mais marcadores na reserva.'],
+  ['Fim da partida', 'Quando o baralho acaba, as construções abertas com marcador pontuam para a maioria. Vence quem tiver mais pontos; no empate, quem tiver mais marcadores na reserva.'],
 ];
 
 // Nenhuma peça do catálogo é só solo; esta existe apenas para a ilustração.
@@ -30,8 +30,8 @@ const SO_SOLO = new DefinicaoTile('so-solo', [
 
 // [peça ilustrativa, rotação, título, texto]
 const PONTUACAO: [string | DefinicaoTile, number, string, string][] = [
-  ['habitat-canto-cristal', 0, 'Habitat', 'Pontua quando fica fechado, sem nenhum lado aberto: 2 pontos por peça, 4 na peça com cristal. Aberto no fim, não vale nada.'],
-  ['duto-curva', 0, 'Duto', 'Pontua quando as duas pontas terminam (numa estufa, bomba ou habitat) ou quando forma um circuito: 1 ponto por peça. Incompleto, não vale nada.'],
+  ['habitat-canto-cristal', 0, 'Habitat', '1 ponto por peça, 2 na peça com cristal. Fechado (sem lado aberto), vale o dobro e pontua na hora; aberto, pontua na contagem final.'],
+  ['duto-curva', 0, 'Duto', '1 ponto por peça. Completo (pontas numa estufa, bomba ou habitat, ou em circuito), pontua na hora; incompleto, na contagem final.'],
   ['escotilha-reta', 0, 'Escotilha', 'O duto atravessa a parede do habitat. Só encaixa com outra escotilha, e a peça conta para o duto e para o habitat.'],
   ['estufa-dutos', 0, 'Estufa', 'Pontuação a definir. Por enquanto, serve de ponta para os dutos.'],
   [SO_SOLO, 0, 'Solo', 'Não pontua.'],

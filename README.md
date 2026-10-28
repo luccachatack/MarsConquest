@@ -171,7 +171,7 @@ Os endereços exibidos foram `http://127.0.0.1:5173/` para desenvolvimento e `ht
 
 Validação realizada no Windows com Node 24.21.0 e npm 11.19.0: instalação reproduzível com `npm ci --offline` usando o cache local, `npm run build` (incluindo `typecheck`) e respostas HTTP 200 do HTML e JavaScript tanto no desenvolvimento quanto no preview. Os servidores usados nessa conferência foram encerrados. Isso valida a configuração inicial, sem representar testes de jogabilidade.
 
-**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 115 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
+**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 124 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
 
 O `tsconfig.json` usa `skipLibCheck: true`: o TypeScript não confere os arquivos de tipos das bibliotecas em `node_modules` (os tipos do Vitest dependem de tipos do Node que o projeto não usa), mas continua conferindo todo o código de `src/` e `testes/`.
 
@@ -196,7 +196,7 @@ Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem �
 1. **Peça:** as posições em verde são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia; se encaixar de mais de um jeito, `R` alterna entre esses jeitos.
 2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. Se nenhuma região aceita marcador, o turno termina sozinho.
 
-Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, aparece a classificação final. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, as construções abertas com marcador pontuam (contagem final) e aparece a classificação. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 | Ação | Controle |
 | --- | --- |

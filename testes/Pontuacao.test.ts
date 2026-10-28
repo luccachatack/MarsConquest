@@ -19,25 +19,31 @@ const habitatNorteCristal = new DefinicaoTile('habitat-norte-cristal', [
 ]);
 
 describe('Pontuação', () => {
-  it('habitat: 2 por peça e 4 por peça com cristal', () => {
-    expect(pontosDaConstrucao(HABITAT, 3, 1)).toBe(8);
-    expect(pontosDaConstrucao(HABITAT, 2, 0)).toBe(4);
-    expect(pontosDaConstrucao(HABITAT, 2, 2)).toBe(8);
+  it('habitat aberto: 1 por peça e 2 por peça com cristal', () => {
+    expect(pontosDaConstrucao(HABITAT, 3, 1, false)).toBe(4);
+    expect(pontosDaConstrucao(HABITAT, 2, 0, false)).toBe(2);
+    expect(pontosDaConstrucao(HABITAT, 2, 2, false)).toBe(4);
   });
 
-  it('duto: 1 por peça', () => {
-    expect(pontosDaConstrucao(PIPE, 4, 0)).toBe(4);
+  it('habitat fechado vale o dobro', () => {
+    expect(pontosDaConstrucao(HABITAT, 3, 1, true)).toBe(8);
+    expect(pontosDaConstrucao(HABITAT, 2, 0, true)).toBe(4);
+  });
+
+  it('duto: 1 por peça, completo ou não', () => {
+    expect(pontosDaConstrucao(PIPE, 4, 0, true)).toBe(4);
+    expect(pontosDaConstrucao(PIPE, 4, 0, false)).toBe(4);
   });
 
   it('solo e estufa não pontuam', () => {
-    expect(pontosDaConstrucao(SOIL, 5, 0)).toBe(0);
-    expect(pontosDaConstrucao(GREENHOUSE, 1, 0)).toBe(0);
+    expect(pontosDaConstrucao(SOIL, 5, 0, true)).toBe(0);
+    expect(pontosDaConstrucao(GREENHOUSE, 1, 0, true)).toBe(0);
   });
 
-  it('construção aberta vale 0; fechada vale pelas regras', () => {
+  it('a construção vale como aberta até fechar, e depois o dobro', () => {
     const inicial = new Tile('a', habitatNorteCristal);
     const board = new Board(inicial);
-    expect(pontosDaFeature(board.getFeatureDe(inicial, 'h1')!)).toBe(0);
+    expect(pontosDaFeature(board.getFeatureDe(inicial, 'h1')!)).toBe(2);
 
     board.colocar(new Tile('b', habitatNorte), new Jogada(new Position(0, -1), 2));
     // Busca de novo: ao ligar, o habitat da peça inicial pode ter sido absorvido pelo da nova.

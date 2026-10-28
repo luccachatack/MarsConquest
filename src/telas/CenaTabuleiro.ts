@@ -5,7 +5,7 @@ import { FaseDaPartida } from '../jogo/EstadoDaPartida';
 import { Jogada } from '../jogo/Jogada';
 import { Jogador } from '../jogo/Jogador';
 import { TipoDeMarcador, type Marcador } from '../jogo/Marcador';
-import { Partida, type Colocacao, type ConstrucaoConcluida, type ResultadoDoTurno } from '../jogo/Partida';
+import { Partida, type Colocacao, type ConstrucaoPontuada, type ResultadoDoTurno } from '../jogo/Partida';
 import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
@@ -73,13 +73,15 @@ function listarNomes(jogadores: readonly Jogador[]): string {
   return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}` : nomes[0];
 }
 
-function descreverConclusao({ feature, pontos, donos }: ConstrucaoConcluida): string {
+// Serve para as construções completadas no turno e para as abertas da contagem final.
+function descreverPontuacao({ feature, pontos, donos }: ConstrucaoPontuada): string {
   const pecas = feature.quantidadeDeTiles();
   const cristais = feature.quantidadeDeCristais();
+  const completa = feature.estaCompleta();
   const oQue =
     feature.tipo === Terrain.HABITAT
-      ? `Habitat de ${pecas} peças${cristais ? ` (${cristais} com cristal)` : ''} fechado`
-      : `Duto de ${pecas} peças completo`;
+      ? `Habitat de ${pecas} peças${cristais ? ` (${cristais} com cristal)` : ''} ${completa ? 'fechado' : 'aberto'}`
+      : `Duto de ${pecas} peças ${completa ? 'completo' : 'incompleto'}`;
   if (donos.length === 0) return `${oQue}, sem colonos: ninguém pontua.`;
   return `${oQue}: +${pontos} para ${listarNomes(donos)}${donos.length > 1 ? ' (empate)' : ''}.`;
 }
@@ -304,11 +306,16 @@ export class CenaTabuleiro extends Phaser.Scene {
       this.registrar(`${resultado.jogador.nome} pôs ${quem} num ${nomeDoTerreno(regiao.tipo)}.`);
     }
     for (const concluida of resultado.concluidas) {
-      this.registrar(descreverConclusao(concluida));
+      this.registrar(descreverPontuacao(concluida));
       this.mostrarPontos(concluida);
       concluida.devolvidos.forEach((m) => this.recolherMarcador(m));
     }
     this.registrarDescartes(resultado.descartadas.length);
+    if (resultado.contagemFinal.length > 0) {
+      const total = resultado.contagemFinal.reduce((soma, c) => soma + c.pontos * c.donos.length, 0);
+      this.registrar(`Contagem final das construções abertas: ${total} pontos distribuídos.`);
+      resultado.contagemFinal.forEach((c) => this.mostrarPontos(c));
+    }
     if (this.partida.estaEncerrada()) {
       const [primeiro] = this.partida.classificacao();
       this.registrar(`Fim da partida! ${primeiro.jogador.nome} terminou em 1º lugar.`);
@@ -334,7 +341,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   }
 
   // "+N" subindo sobre a construção, na cor de quem pontuou (branco se foram vários).
-  private mostrarPontos({ feature, pontos, donos }: ConstrucaoConcluida): void {
+  private mostrarPontos({ feature, pontos, donos }: ConstrucaoPontuada): void {
     const posicoes = feature.getTiles().map((t) => t.getPosicao()!);
     const cx = (posicoes.reduce((s, q) => s + q.x, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
     const cy = (posicoes.reduce((s, q) => s + q.y, 0) / posicoes.length + 0.5) * TAMANHO_PECA;

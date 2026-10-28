@@ -17,12 +17,13 @@ import { Terrain } from './Terrain';
 import type { Tile } from './Tile';
 import type { TileDeck } from './TileDeck';
 
-export interface ConstrucaoConcluida {
+// Uma construção que acabou de ser pontuada: completada no turno ou, no fim, ainda aberta.
+export interface ConstrucaoPontuada {
   readonly feature: Feature;
   readonly pontos: number;
   // Quem tinha a maioria dos marcadores e levou os pontos; vazio se não havia marcador.
   readonly donos: readonly Jogador[];
-  // Marcadores que estavam nela e voltaram para os donos (RN07).
+  // Marcadores que voltaram para os donos (RN07). Na contagem final, ficam no tabuleiro.
   readonly devolvidos: readonly Marcador[];
 }
 
@@ -30,9 +31,11 @@ export interface ResultadoDoTurno {
   readonly jogador: Jogador;
   readonly tile: Tile;
   readonly marcador: Marcador | null;
-  readonly concluidas: readonly ConstrucaoConcluida[];
+  readonly concluidas: readonly ConstrucaoPontuada[];
   // Peças compradas depois do turno que não cabiam em lugar nenhum (RN13).
   readonly descartadas: readonly Tile[];
+  // Só no último turno: as construções abertas com marcador, pontuadas na contagem final (RN09).
+  readonly contagemFinal: readonly ConstrucaoPontuada[];
 }
 
 export interface Colocacao {
@@ -189,7 +192,7 @@ export class Partida {
     return marcador;
   }
 
-  // Pontua o que a peça completou (depois do marcador, que também conta),
+  // Pontua o que a peça completou (depois do marcador, que também conta; habitat fechado vale o dobro),
   // devolve os marcadores dessas construções, passa a vez e compra a próxima peça.
   private executarFimDoTurno(marcador: Marcador | null): ResultadoDoTurno {
     const jogador = this.getJogadorDaVez();
@@ -206,7 +209,23 @@ export class Partida {
 
     this.vez = (this.vez + 1) % this.jogadores.length;
     const descartadas = this.comprarProxima();
-    return { jogador, tile, marcador, concluidas, descartadas };
+    const contagemFinal = this.atual ? [] : this.executarContagemFinal();
+    return { jogador, tile, marcador, concluidas, descartadas, contagemFinal };
+  }
+
+  // Fim da partida: cada construção aberta com marcador vale para quem tem a maioria
+  // (habitat aberto: 1 por peça, 2 com cristal; duto: 1 por peça). Os marcadores ficam
+  // no tabuleiro, então o desempate conta a reserva de antes da contagem final.
+  private executarContagemFinal(): ConstrucaoPontuada[] {
+    return this.board
+      .getFeatures()
+      .filter((f) => f.estaOcupada())
+      .map((feature) => {
+        const pontos = pontosDaFeature(feature);
+        const donos = feature.donos();
+        donos.forEach((d) => d.adicionarPontos(pontos));
+        return { feature, pontos, donos, devolvidos: [] };
+      });
   }
 
   // Compra até achar uma peça que cabe; as que não cabem são descartadas (RN13).
