@@ -4,13 +4,13 @@ Trabalho da disciplina de Projeto de Software: um jogo digital local e original 
 
 ## Estado atual
 
-**Fases 1 (peças) e 2 (tabuleiro) implementadas e testadas, e a primeira parte da fase 3 (jogadores, turnos e placar). Já dá para jogar uma partida de 2 a 5 jogadores, humanos ou computador, com pontos. Ainda não há marcadores.**
+**Fases 1 (peças), 2 (tabuleiro) e 3 (jogadores, turnos, marcadores e placar) implementadas e testadas. Já dá para jogar uma partida completa de 2 a 5 jogadores, humanos ou computador, com colonos e pontos.**
 
-Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`), o modelo de 12 pontos de borda (`PontosDeBorda`), as peças (`Regiao`, `DefinicaoTile`, `Tile`), a `Jogada`, o catálogo de peças (22 tipos, 60 peças) e a criação do baralho (`TileFactory`, `TileDeck`). Da fase 2, o tabuleiro (`Board`): valida as jogadas, lista as posições válidas e monta as construções (`Feature`: habitats e dutos), juntando as que uma peça liga (`UnionFind`) e detectando quando ficam completas. Da fase 3, a partida (`Partida`): jogadores (`Jogador`) em turnos, descarte de peças sem encaixe, pontuação (`Pontuacao`) e classificação final. Em `src/ia/`, as estratégias do computador: fácil (jogada sorteada) e difícil (a jogada que dá mais pontos, prevista com `Board.preverConclusoes`). Nada disso depende do Phaser. Os testes estão em `testes/`.
+Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`), o modelo de 12 pontos de borda (`PontosDeBorda`), as peças (`Regiao`, `DefinicaoTile`, `Tile`), a `Jogada`, o catálogo de peças (22 tipos, 60 peças) e a criação do baralho (`TileFactory`, `TileDeck`). Da fase 2, o tabuleiro (`Board`): valida as jogadas, lista as posições válidas e monta as construções (`Feature`: habitats e dutos), juntando as que uma peça liga (`UnionFind`) e detectando quando ficam completas. Da fase 3, a partida (`Partida`): jogadores (`Jogador`) em turnos de duas etapas, colocar a peça e depois um marcador (`Marcador`: colonos e chefe), controladas pelo padrão State (`EstadoDaPartida`). A partida também faz o descarte de peças sem encaixe, a pontuação por maioria de marcadores (`Pontuacao`) e a classificação final com desempate. Em `src/ia/`, as estratégias do computador: fácil (sorteia) e difícil (avalia cada jogada e marcador com `Board.preverConstrucoes`). Nada disso depende do Phaser. Os testes estão em `testes/`.
 
 A interface tem um **menu** (`CenaMenu`) com as opções Jogar, Peças, Regras e Créditos. **Jogar** abre a escolha de jogadores (`CenaPreparacao`) e depois a partida (`CenaTabuleiro`, com o painel `CenaPainelTabuleiro`, que mostra o placar, a vez e os acontecimentos). A tela **Peças** (`CenaCatalogo`) mostra as 22 peças desenhadas a partir das regiões, gira uma peça com um clique e compra peças de um baralho embaralhado. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. O desenho das peças (`src/telas/desenharTile.ts`) usa só os dados de `Tile.getRegioes()`, então também serve para conferir visualmente o catálogo e a rotação. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
 
-Ainda não há marcadores. Até eles existirem, vale a regra provisória: quem coloca a peça que completa um habitat ou duto ganha os pontos dele.
+Falta decidir a pontuação da estufa (fases 4 a 6 do plano: ajustes de pontuação, IA e acabamento).
 
 As especificações estão em [docs/fase-1-especificacao.md](docs/fase-1-especificacao.md), [docs/fase-2-especificacao.md](docs/fase-2-especificacao.md) e [docs/fase-3-especificacao.md](docs/fase-3-especificacao.md). O roteiro completo está em [docs/plano-proximos-passos.pdf](docs/plano-proximos-passos.pdf); ele foi escrito antes da troca de tema e ainda usa os nomes antigos.
 
@@ -26,7 +26,7 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 - Marcador grande incluído.
 - Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Já implementado: partida de 2 a 5 jogadores, humanos ou computador (fácil e difícil), com pontuação. Ainda planejado: marcadores, marcador grande e o desempate por marcadores. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa, marcadores e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa, marcadores e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 ## Organização atual
 
@@ -45,7 +45,7 @@ docs/
   plano-proximos-passos.pdf  # Análise e roteiro em fases
   fase-1-especificacao.md    # Especificação da fase 1 (peças)
   fase-2-especificacao.md    # Especificação da fase 2 (tabuleiro)
-  fase-3-especificacao.md    # Especificação da fase 3, parte 1 (jogadores, turnos e placar)
+  fase-3-especificacao.md    # Especificação da fase 3 (jogadores, turnos, marcadores e placar)
   regras-de-pontuacao.md     # Regras de pontuação decididas e pendentes
 index.html      # HTML mínimo que carrega src/main.ts
 package.json    # Metadados, dependências e comandos do projeto
@@ -168,7 +168,7 @@ Os endereços exibidos foram `http://127.0.0.1:5173/` para desenvolvimento e `ht
 
 Validação realizada no Windows com Node 24.21.0 e npm 11.19.0: instalação reproduzível com `npm ci --offline` usando o cache local, `npm run build` (incluindo `typecheck`) e respostas HTTP 200 do HTML e JavaScript tanto no desenvolvimento quanto no preview. Os servidores usados nessa conferência foram encerrados. Isso valida a configuração inicial, sem representar testes de jogabilidade.
 
-**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 13 arquivos e 101 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
+**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 115 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
 
 O `tsconfig.json` usa `skipLibCheck: true`: o TypeScript não confere os arquivos de tipos das bibliotecas em `node_modules` (os tipos do Vitest dependem de tipos do Node que o projeto não usa), mas continua conferindo todo o código de `src/` e `testes/`.
 
@@ -188,12 +188,20 @@ O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos**. E
 
 Em **Jogar**, escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para trocar entre **Humano**, **CPU fácil**, **CPU difícil** e **Fora da partida**) e um nome. **Começar partida** (ou `Enter`) abre o tabuleiro. Os jogadores jogam na ordem da lista.
 
-Na partida, o painel mostra o placar, de quem é a vez e a peça a colocar. Na vez de um humano, as posições em verde são onde a peça encaixa na rotação atual; passando o mouse sobre elas aparece a prévia. Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Quando o baralho acaba, aparece a classificação final.
+Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem é a vez e a peça a colocar. Cada turno tem duas etapas:
+
+1. **Peça:** as posições em verde são onde a peça encaixa na rotação atual; passando o mouse sobre elas aparece a prévia.
+2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. Se nenhuma região aceita marcador, o turno termina sozinho.
+
+Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Quando o baralho acaba, aparece a classificação final. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 | Ação | Controle |
 | --- | --- |
 | Colocar a peça | Clique numa posição verde |
 | Girar a peça | `R`, botão direito, botão **Girar** ou clique na prévia do painel |
+| Pôr um marcador | Clique num círculo da peça recém-colocada |
+| Trocar entre colono e chefe | `E` ou botão **Chefe** |
+| Não pôr marcador | `Espaço` ou botão **Pular** |
 | Mover o tabuleiro | Arraste com o mouse |
 | Zoom | Roda do mouse |
 | Voltar ao centro | `C` ou botão **Centralizar** |
@@ -217,7 +225,7 @@ Na tela **Peças**:
 - [Plano dos próximos passos](docs/plano-proximos-passos.pdf).
 - [Especificação da fase 1](docs/fase-1-especificacao.md).
 - [Especificação da fase 2](docs/fase-2-especificacao.md).
-- [Especificação da fase 3, parte 1](docs/fase-3-especificacao.md).
+- [Especificação da fase 3](docs/fase-3-especificacao.md).
 - [Regras de pontuação](docs/regras-de-pontuacao.md).
 - [Prompt da etapa inicial](PROMPT_CARCASSONNE.md).
 
