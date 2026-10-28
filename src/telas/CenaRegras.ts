@@ -11,7 +11,7 @@ const COMO_JOGAR: [string, string][] = [
     '1. Compre a peça do topo do baralho.\n' +
       '2. Gire a peça e coloque-a encostada em pelo menos uma peça da mesa.\n' +
       '3. Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto, solo com solo e escotilha com escotilha.\n' +
-      '4. Se quiser, ponha um colono ou o chefe num habitat ou duto dessa peça.\n' +
+      '4. Se quiser, ponha um colono ou o chefe num habitat, duto ou estufa dessa peça.\n' +
       '5. Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
   ],
   [
@@ -33,7 +33,7 @@ const PONTUACAO: [string | DefinicaoTile, number, string, string][] = [
   ['habitat-canto-cristal', 0, 'Habitat', '1 ponto por peça, 2 na peça com cristal. Fechado (sem lado aberto), vale o dobro e pontua na hora; aberto, pontua na contagem final.'],
   ['duto-curva', 0, 'Duto', '1 ponto por peça. Completo (pontas numa estufa, bomba ou habitat, ou em circuito), pontua na hora; incompleto, na contagem final.'],
   ['escotilha-reta', 0, 'Escotilha', 'O duto atravessa a parede do habitat. Só encaixa com outra escotilha, e a peça conta para o duto e para o habitat.'],
-  ['estufa-dutos', 0, 'Estufa', 'Pontuação a definir. Por enquanto, serve de ponta para os dutos.'],
+  ['estufa-dutos', 0, 'Estufa', '1 ponto por ela e 1 por peça nas 8 casas em volta. Cercada, pontua na hora (9); senão, na contagem final.'],
   [SO_SOLO, 0, 'Solo', 'Não pontua.'],
 ];
 

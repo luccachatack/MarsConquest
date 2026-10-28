@@ -12,7 +12,7 @@ import { Tile } from '../src/jogo/Tile';
 import { TileFactory } from '../src/jogo/TileFactory';
 import { comSemente } from './aleatorio';
 
-const { HABITAT, PIPE, SOIL } = Terrain;
+const { HABITAT, PIPE, SOIL, GREENHOUSE } = Terrain;
 const TODOS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 
 // Definições pequenas, só para os testes (independentes do catálogo).
@@ -36,6 +36,10 @@ const ponte = new DefinicaoTile('ponte', [
   { id: 's2', tipo: SOIL, pontos: [9, 10, 11] },
 ]);
 const cupula = new DefinicaoTile('cupula', [{ id: 'h1', tipo: HABITAT, pontos: TODOS }]);
+const estufaSo = new DefinicaoTile('estufa', [
+  { id: 'e1', tipo: GREENHOUSE, pontos: [] },
+  { id: 's1', tipo: SOIL, pontos: TODOS },
+]);
 const dutoReto = new DefinicaoTile('duto-reto', [
   { id: 'd1', tipo: PIPE, pontos: [4, 10] },
   { id: 's1', tipo: SOIL, pontos: [11, 0, 1, 2, 3] },
@@ -99,6 +103,17 @@ function conferirInvariantes(board: Board): void {
   }
   for (const feature of board.getFeatures()) {
     let abertas = 0;
+    if (feature.tipo === GREENHOUSE) {
+      // Estufa: casas vazias entre as 8 em volta.
+      const { x, y } = feature.getPartes()[0].tile.getPosicao()!;
+      for (const dx of [-1, 0, 1]) {
+        for (const dy of [-1, 0, 1]) {
+          if ((dx || dy) && !board.estaOcupada(new Position(x + dx, y + dy))) abertas++;
+        }
+      }
+      expect(feature.getBordasAbertas()).toBe(abertas);
+      continue;
+    }
     for (const { tile, regiaoId } of feature.getPartes()) {
       for (const p of regiao(tile, regiaoId).pontos) {
         if (!board.estaOcupada(tile.getPosicao()!.vizinha(ladoDoPonto(p)))) abertas++;
@@ -296,9 +311,53 @@ describe('Board: construções (features)', () => {
     conferirInvariantes(board);
   });
 
-  it('estufa e solo não formam construções', () => {
+  it('solo não forma construção', () => {
     const board = new Board(peca(soloPuro));
     expect(board.getFeatures()).toEqual([]);
+  });
+});
+
+describe('Board: estufa', () => {
+  // Volta da posição (1, 0), na ordem em que cada casa encosta numa peça já colocada.
+  // Serve com ou sem a estufa já em (1, 0); a casa (0, 0) é a peça inicial.
+  const VOLTA_DE_1_0: [number, number][] = [[0, 1], [1, 1], [2, 1], [2, 0], [0, -1], [1, -1], [2, -1]];
+
+  it('a estufa é uma construção; suas bordas abertas são as casas vazias em volta', () => {
+    const board = new Board(peca(soloPuro));
+    const estufa = peca(estufaSo);
+    board.colocar(estufa, jogada(1, 0));
+    const construcao = board.getFeatureDe(estufa, 'e1')!;
+    expect(construcao.tipo).toBe(GREENHOUSE);
+    // A peça inicial já ocupa uma das 8 casas.
+    expect(construcao.getBordasAbertas()).toBe(7);
+    board.colocar(peca(soloPuro), jogada(2, 0));
+    expect(construcao.getBordasAbertas()).toBe(6);
+    // Uma peça na diagonal também conta.
+    board.colocar(peca(soloPuro), jogada(2, 1));
+    expect(construcao.getBordasAbertas()).toBe(5);
+    conferirInvariantes(board);
+  });
+
+  it('cercada pelas 8 peças, fica completa, e colocar devolve a estufa', () => {
+    const board = new Board(peca(soloPuro));
+    const estufa = peca(estufaSo);
+    board.colocar(estufa, jogada(1, 0));
+    const construcao = board.getFeatureDe(estufa, 'e1')!;
+    VOLTA_DE_1_0.slice(0, -1).forEach(([x, y]) => expect(board.colocar(peca(soloPuro), jogada(x, y))).toEqual([]));
+
+    const [x, y] = VOLTA_DE_1_0.at(-1)!;
+    expect(board.preverConclusoes(peca(soloPuro), jogada(x, y))).toMatchObject([{ tipo: GREENHOUSE, bordasAbertas: 0 }]);
+    expect(board.colocar(peca(soloPuro), jogada(x, y))).toEqual([construcao]);
+    expect(construcao.estaCompleta()).toBe(true);
+    conferirInvariantes(board);
+  });
+
+  it('a estufa colocada já cercada fica completa na hora', () => {
+    const board = new Board(peca(soloPuro));
+    VOLTA_DE_1_0.forEach(([x, y]) => board.colocar(peca(soloPuro), jogada(x, y)));
+    const estufa = peca(estufaSo);
+    const concluidas = board.colocar(estufa, jogada(1, 0));
+    expect(concluidas).toEqual([board.getFeatureDe(estufa, 'e1')]);
   });
 });
 

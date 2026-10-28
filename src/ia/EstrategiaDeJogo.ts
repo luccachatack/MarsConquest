@@ -105,7 +105,7 @@ export class EstrategiaGulosa implements EstrategiaDeJogo {
         valor -= PESO_DOS_PONTOS_DOS_OUTROS * pontos * outros;
       } else if (meu) {
         const reservaBaixa = eu.totalDisponivel() <= 2 ? CUSTO_DA_RESERVA_BAIXA : 0;
-        const seFechar = pontosDaConstrucao(c.tipo, c.quantidadeDeTiles, c.quantidadeDeCristais, true);
+        const seFechar = pontosDaConstrucao(c.tipo, c.quantidadeDeTiles, c.quantidadeDeCristais, 0);
         valor += pontos + CHANCE_DE_FECHAR * (seFechar - pontos) - CUSTO_DO_MARCADOR[meu.tipo] - reservaBaixa;
       } else if (donos.includes(eu)) {
         valor += 0.5; // aumenta uma construção minha

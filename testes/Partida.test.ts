@@ -14,7 +14,7 @@ import { TileDeck } from '../src/jogo/TileDeck';
 import { TileFactory } from '../src/jogo/TileFactory';
 import { comSemente } from './aleatorio';
 
-const { HABITAT, SOIL } = Terrain;
+const { HABITAT, SOIL, GREENHOUSE } = Terrain;
 const { HUMANO, CPU_FACIL, CPU_DIFICIL } = TipoDeJogador;
 const { COLONO, CHEFE } = TipoDeMarcador;
 const TODOS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -22,6 +22,10 @@ const TOTAL_DE_MARCADORES = RESERVA_INICIAL[COLONO] + RESERVA_INICIAL[CHEFE];
 
 const soloPuro = new DefinicaoTile('solo', [{ id: 's1', tipo: SOIL, pontos: TODOS }]);
 const cupula = new DefinicaoTile('cupula', [{ id: 'h1', tipo: HABITAT, pontos: TODOS }]);
+const estufaSo = new DefinicaoTile('estufa', [
+  { id: 'e1', tipo: GREENHOUSE, pontos: [] },
+  { id: 's1', tipo: SOIL, pontos: TODOS },
+]);
 const habitatNorte = new DefinicaoTile('habitat-norte', [
   { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
   { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6, 7, 8, 9, 10, 11] },
@@ -274,6 +278,35 @@ describe('Partida: contagem final (RN09)', () => {
     const ultimo = partida.jogar(jogada(0, -1));
     expect(ultimo.contagemFinal).toEqual([]);
     expect(partida.getJogadores().map((j) => j.getPontos())).toEqual([0, 0]);
+  });
+});
+
+describe('Partida: estufa', () => {
+  it('cercada, pontua 9 para o dono do marcador na hora, e o colono volta', () => {
+    const volta: [number, number][] = [[0, 1], [1, 1], [2, 1], [2, 0], [0, -1], [1, -1], [2, -1]];
+    const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, estufaSo, ...volta.map(() => soloPuro)));
+    const [ana, bia] = partida.getJogadores();
+    partida.colocarPeca(jogada(1, 0));
+    expect(partida.regioesParaMarcador()).toEqual(['e1']);
+    partida.colocarMarcador(colono('e1'));
+
+    let ultimo = null;
+    for (const [x, y] of volta) ultimo = partida.jogar(jogada(x, y));
+    // Quem fechou foi a Bia, mas a estufa é da Ana.
+    expect(ultimo!.jogador).toBe(bia);
+    expect(ultimo!.concluidas[0]).toMatchObject({ pontos: 9, donos: [ana] });
+    expect(ana.getPontos()).toBe(9);
+    expect(ana.disponiveis(COLONO)).toBe(6);
+  });
+
+  it('aberta no fim, vale 1 por ela e 1 por peça em volta', () => {
+    const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, estufaSo, soloPuro));
+    const [ana] = partida.getJogadores();
+    partida.jogar(jogada(1, 0), colono('e1'));
+    const ultimo = partida.jogar(jogada(2, 0));
+    expect(ultimo.contagemFinal).toHaveLength(1);
+    // A estufa, a peça inicial e a peça de (2, 0).
+    expect(ana.getPontos()).toBe(3);
   });
 });
 

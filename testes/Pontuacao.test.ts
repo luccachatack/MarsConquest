@@ -8,6 +8,8 @@ import { Terrain } from '../src/jogo/Terrain';
 import { Tile } from '../src/jogo/Tile';
 
 const { HABITAT, PIPE, SOIL, GREENHOUSE } = Terrain;
+const ABERTA = 1;
+const COMPLETA = 0;
 
 const habitatNorte = new DefinicaoTile('habitat-norte', [
   { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
@@ -20,24 +22,29 @@ const habitatNorteCristal = new DefinicaoTile('habitat-norte-cristal', [
 
 describe('Pontuação', () => {
   it('habitat aberto: 1 por peça e 2 por peça com cristal', () => {
-    expect(pontosDaConstrucao(HABITAT, 3, 1, false)).toBe(4);
-    expect(pontosDaConstrucao(HABITAT, 2, 0, false)).toBe(2);
-    expect(pontosDaConstrucao(HABITAT, 2, 2, false)).toBe(4);
+    expect(pontosDaConstrucao(HABITAT, 3, 1, ABERTA)).toBe(4);
+    expect(pontosDaConstrucao(HABITAT, 2, 0, ABERTA)).toBe(2);
+    expect(pontosDaConstrucao(HABITAT, 2, 2, ABERTA)).toBe(4);
   });
 
   it('habitat fechado vale o dobro', () => {
-    expect(pontosDaConstrucao(HABITAT, 3, 1, true)).toBe(8);
-    expect(pontosDaConstrucao(HABITAT, 2, 0, true)).toBe(4);
+    expect(pontosDaConstrucao(HABITAT, 3, 1, COMPLETA)).toBe(8);
+    expect(pontosDaConstrucao(HABITAT, 2, 0, COMPLETA)).toBe(4);
   });
 
   it('duto: 1 por peça, completo ou não', () => {
-    expect(pontosDaConstrucao(PIPE, 4, 0, true)).toBe(4);
-    expect(pontosDaConstrucao(PIPE, 4, 0, false)).toBe(4);
+    expect(pontosDaConstrucao(PIPE, 4, 0, COMPLETA)).toBe(4);
+    expect(pontosDaConstrucao(PIPE, 4, 0, ABERTA)).toBe(4);
   });
 
-  it('solo e estufa não pontuam', () => {
-    expect(pontosDaConstrucao(SOIL, 5, 0, true)).toBe(0);
-    expect(pontosDaConstrucao(GREENHOUSE, 1, 0, true)).toBe(0);
+  it('estufa: 1 por ela e 1 por peça em volta; cercada, 9', () => {
+    expect(pontosDaConstrucao(GREENHOUSE, 1, 0, 0)).toBe(9);
+    expect(pontosDaConstrucao(GREENHOUSE, 1, 0, 8)).toBe(1);
+    expect(pontosDaConstrucao(GREENHOUSE, 1, 0, 5)).toBe(4);
+  });
+
+  it('solo não pontua', () => {
+    expect(pontosDaConstrucao(SOIL, 5, 0, COMPLETA)).toBe(0);
   });
 
   it('a construção vale como aberta até fechar, e depois o dobro', () => {

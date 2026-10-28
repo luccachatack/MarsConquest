@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { estrategiaPara, type EstrategiaDeJogo } from '../ia/EstrategiaDeJogo';
+import { CASAS_EM_VOLTA } from '../jogo/Board';
 import { CATALOGO_DE_TILES, ID_TILE_INICIAL } from '../jogo/catalogoDeTiles';
 import { FaseDaPartida } from '../jogo/EstadoDaPartida';
 import { Jogada } from '../jogo/Jogada';
@@ -64,8 +65,10 @@ function proximaRotacao(rotacoes: readonly number[], inicio: number): number {
   throw new Error('A peça não encaixa nesta posição.');
 }
 
-function nomeDoTerreno(tipo: Terrain): string {
-  return tipo === Terrain.HABITAT ? 'habitat' : 'duto';
+// Com o artigo: "num habitat", "num duto", "numa estufa".
+function numTerreno(tipo: Terrain): string {
+  if (tipo === Terrain.GREENHOUSE) return 'numa estufa';
+  return tipo === Terrain.HABITAT ? 'num habitat' : 'num duto';
 }
 
 function listarNomes(jogadores: readonly Jogador[]): string {
@@ -78,10 +81,15 @@ function descreverPontuacao({ feature, pontos, donos }: ConstrucaoPontuada): str
   const pecas = feature.quantidadeDeTiles();
   const cristais = feature.quantidadeDeCristais();
   const completa = feature.estaCompleta();
+  const emVolta = CASAS_EM_VOLTA - feature.getBordasAbertas();
   const oQue =
     feature.tipo === Terrain.HABITAT
       ? `Habitat de ${pecas} peças${cristais ? ` (${cristais} com cristal)` : ''} ${completa ? 'fechado' : 'aberto'}`
-      : `Duto de ${pecas} peças ${completa ? 'completo' : 'incompleto'}`;
+      : feature.tipo === Terrain.GREENHOUSE
+        ? completa
+          ? 'Estufa cercada'
+          : `Estufa com ${emVolta} peça${emVolta === 1 ? '' : 's'} em volta`
+        : `Duto de ${pecas} peças ${completa ? 'completo' : 'incompleto'}`;
   if (donos.length === 0) return `${oQue}, sem colonos: ninguém pontua.`;
   return `${oQue}: +${pontos} para ${listarNomes(donos)}${donos.length > 1 ? ' (empate)' : ''}.`;
 }
@@ -303,7 +311,7 @@ export class CenaTabuleiro extends Phaser.Scene {
       this.desenharMarcadorNoTabuleiro(resultado.marcador);
       const regiao = resultado.marcador.tile.getRegioes().find((r) => r.id === resultado.marcador!.regiaoId)!;
       const quem = resultado.marcador.tipo === TipoDeMarcador.CHEFE ? 'o chefe' : 'um colono';
-      this.registrar(`${resultado.jogador.nome} pôs ${quem} num ${nomeDoTerreno(regiao.tipo)}.`);
+      this.registrar(`${resultado.jogador.nome} pôs ${quem} ${numTerreno(regiao.tipo)}.`);
     }
     for (const concluida of resultado.concluidas) {
       this.registrar(descreverPontuacao(concluida));

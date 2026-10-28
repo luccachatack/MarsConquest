@@ -9,13 +9,14 @@ export interface ParteDeFeature {
   readonly regiaoId: string;
 }
 
-// Construção formada por regiões ligadas entre peças: um habitat ou um duto.
+// Construção que pontua: um habitat ou um duto (regiões ligadas entre peças) ou uma estufa
+// (uma peça só, completa quando as 8 casas em volta estão ocupadas).
 // Information Expert: sabe de quais peças é feita e se está completa.
 export class Feature {
   readonly tipo: Terrain;
   private readonly partes: ParteDeFeature[];
   private readonly marcadores: Marcador[] = [];
-  // Pontos de borda das partes que ainda não encostam em nenhuma peça.
+  // Pontos de borda das partes que ainda não encostam em nenhuma peça; na estufa, casas vazias em volta.
   private bordasAbertas: number;
 
   constructor(tipo: Terrain, parte: ParteDeFeature, bordasAbertas: number) {

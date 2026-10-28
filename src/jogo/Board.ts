@@ -9,9 +9,26 @@ import { Terrain } from './Terrain';
 import { Tile } from './Tile';
 import { UnionFind } from './UnionFind';
 
-// Terrenos que formam construções entre peças. A estufa fica dentro de uma peça só,
-// e o solo ainda não pontua; para incluí-lo, basta adicioná-lo aqui.
+// Terrenos que formam construções ligando peças vizinhas. O solo ainda não pontua;
+// para incluí-lo, basta adicioná-lo aqui.
 const TIPOS_COM_FEATURE: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE]);
+
+// A estufa é uma construção de uma peça só. As "bordas abertas" dela são as casas vazias
+// entre as 8 em volta: cada peça colocada ao redor fecha uma, e cercada ela fica completa.
+export const CASAS_EM_VOLTA = 8;
+const VIZINHANCA: readonly (readonly [number, number])[] = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0], [1, 0],
+  [-1, 1], [0, 1], [1, 1],
+];
+
+function emVolta(p: Position): Position[] {
+  return VIZINHANCA.map(([dx, dy]) => new Position(p.x + dx, p.y + dy));
+}
+
+function regiaoDaEstufa(tile: Tile) {
+  return tile.getDefinicao().regioes.find((r) => r.tipo === Terrain.GREENHOUSE);
+}
 
 const NOMES_DIRECAO: Record<Direction, string> = {
   [Direction.NORTH]: 'norte',
@@ -229,6 +246,30 @@ export class Board {
       somas.get(locais.encontrar(chave))!.bordasAbertas -= 2;
     }
 
+    // Estufas: a da peça nova (casas vazias em volta da posição) e as que estão em volta,
+    // que ganham uma vizinha a mais.
+    const estufaNova = regiaoDaEstufa(tile);
+    if (estufaNova) {
+      somas.set(`nova#${estufaNova.id}`, {
+        tipo: Terrain.GREENHOUSE,
+        bordasAbertas: this.casasVaziasEmVolta(jogada.position),
+        tiles: new Set([tile]),
+        cristais: new Set(),
+        marcadores: [],
+        regioesDaPeca: [estufaNova.id],
+      });
+    }
+    for (const feature of this.estufasEmVolta(jogada.position)) {
+      somas.set(`estufa#${feature.getPartes()[0].tile.id}`, {
+        tipo: Terrain.GREENHOUSE,
+        bordasAbertas: feature.getBordasAbertas() - 1,
+        tiles: new Set(feature.getTiles()),
+        cristais: new Set(),
+        marcadores: [...feature.getMarcadores()],
+        regioesDaPeca: [],
+      });
+    }
+
     return [...somas.values()].map((g) => ({
       tipo: g.tipo,
       quantidadeDeTiles: g.tiles.size,
@@ -270,14 +311,43 @@ export class Board {
       }
     }
 
-    // Só uma construção que encosta na peça nova pode ter acabado de ficar completa.
-    const tocadas = new Set<Feature>();
+    // A peça nova ocupa uma das casas em volta de cada estufa vizinha.
+    const estufasEmVolta = this.estufasEmVolta(position);
+    estufasEmVolta.forEach((f) => f.fecharBordas(1));
+    const estufa = regiaoDaEstufa(tile);
+    if (estufa) {
+      const chave = chaveDaParte(tile, estufa.id);
+      this.conjuntos.adicionar(chave);
+      this.featuresPorRaiz.set(
+        chave,
+        new Feature(Terrain.GREENHOUSE, { tile, regiaoId: estufa.id }, this.casasVaziasEmVolta(position)),
+      );
+    }
+
+    // Só uma construção que encosta na peça nova (ou uma estufa em volta dela) pode ter
+    // acabado de ficar completa.
+    const tocadas = new Set<Feature>(estufasEmVolta);
     for (const regiao of tile.getRegioes()) {
-      if (TIPOS_COM_FEATURE.has(regiao.tipo)) {
+      if (TIPOS_COM_FEATURE.has(regiao.tipo) || regiao.tipo === Terrain.GREENHOUSE) {
         tocadas.add(this.featureDaChave(chaveDaParte(tile, regiao.id)));
       }
     }
     return [...tocadas].filter((f) => f.estaCompleta());
+  }
+
+  private casasVaziasEmVolta(position: Position): number {
+    return emVolta(position).filter((p) => !this.estaOcupada(p)).length;
+  }
+
+  // As construções das estufas que estão nas 8 casas em volta da posição.
+  private estufasEmVolta(position: Position): Feature[] {
+    const estufas: Feature[] = [];
+    for (const p of emVolta(position)) {
+      const vizinha = this.getTile(p);
+      const estufa = vizinha && regiaoDaEstufa(vizinha);
+      if (estufa) estufas.push(this.featureDaChave(chaveDaParte(vizinha, estufa.id)));
+    }
+    return estufas;
   }
 
   // Liga duas partes que se encostam: junta as construções, se eram diferentes,

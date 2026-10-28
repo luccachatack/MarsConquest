@@ -43,7 +43,7 @@ export interface Colocacao {
   readonly posicao: number;
 }
 
-const TIPOS_COM_MARCADOR: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE]);
+const TIPOS_COM_MARCADOR: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE, Terrain.GREENHOUSE]);
 
 // Uma partida (o Game do plano): jogadores em turnos. Cada turno tem duas etapas,
 // colocar a peça e depois, se quiser, um marcador nela; os estados controlam a ordem.
@@ -136,7 +136,7 @@ export class Partida {
     this.estado.colocarPeca(this.operacoes, jogada);
   }
 
-  // Regiões da peça recém-colocada que aceitam marcador: habitat ou duto cuja construção
+  // Regiões da peça recém-colocada que aceitam marcador: habitat, duto ou estufa cuja construção
   // ainda não tem marcador (RN04, RN14). Vazia se o jogador não tem marcadores (RN05).
   regioesParaMarcador(): string[] {
     const tile = this.atual;

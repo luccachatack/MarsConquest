@@ -10,7 +10,7 @@ Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`
 
 A interface tem um **menu** (`CenaMenu`) com a arte da capa em tela cheia (`public/assets/capa-menu.png`); os botões Jogar, Peças, Regras e Créditos pintados na arte são clicáveis e crescem ao passar o mouse. **Jogar** abre a escolha de jogadores (`CenaPreparacao`) e depois a partida (`CenaTabuleiro`, com o painel `CenaPainelTabuleiro`, que mostra o placar, a vez e os acontecimentos). A tela **Peças** (`CenaCatalogo`) mostra as 22 peças desenhadas a partir das regiões, gira uma peça com um clique e compra peças de um baralho embaralhado. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. O desenho das peças (`src/telas/desenharTile.ts`) usa só os dados de `Tile.getRegioes()`, então também serve para conferir visualmente o catálogo e a rotação. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
 
-Falta decidir a pontuação da estufa (fases 4 a 6 do plano: ajustes de pontuação, IA e acabamento).
+Próximos passos: equilíbrio da pontuação, IA e acabamento (fases 4 a 6 do plano).
 
 As especificações estão em [docs/fase-1-especificacao.md](docs/fase-1-especificacao.md), [docs/fase-2-especificacao.md](docs/fase-2-especificacao.md) e [docs/fase-3-especificacao.md](docs/fase-3-especificacao.md). O roteiro completo está em [docs/plano-proximos-passos.pdf](docs/plano-proximos-passos.pdf); ele foi escrito antes da troca de tema e ainda usa os nomes antigos.
 
@@ -26,7 +26,7 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 - Marcador grande incluído.
 - Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação já decididas (habitat, duto e estufa) e as pendentes (solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 ## O que tem em cada pasta e arquivo
 
@@ -171,7 +171,7 @@ Os endereços exibidos foram `http://127.0.0.1:5173/` para desenvolvimento e `ht
 
 Validação realizada no Windows com Node 24.21.0 e npm 11.19.0: instalação reproduzível com `npm ci --offline` usando o cache local, `npm run build` (incluindo `typecheck`) e respostas HTTP 200 do HTML e JavaScript tanto no desenvolvimento quanto no preview. Os servidores usados nessa conferência foram encerrados. Isso valida a configuração inicial, sem representar testes de jogabilidade.
 
-**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 124 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
+**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 130 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
 
 O `tsconfig.json` usa `skipLibCheck: true`: o TypeScript não confere os arquivos de tipos das bibliotecas em `node_modules` (os tipos do Vitest dependem de tipos do Node que o projeto não usa), mas continua conferindo todo o código de `src/` e `testes/`.
 
