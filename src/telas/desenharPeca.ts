@@ -2,29 +2,35 @@ import Phaser from 'phaser';
 import type { Tile } from '../jogo/Tile';
 import { CORES, desenharTile } from './desenharTile';
 
-// Arte das peças: public/assets/pecas.png, 24 quadros de 256 × 256 em 6 colunas × 4 linhas.
+// Arte das peças: public/assets/pecas_spritesheet.png, 24 quadros de 256 × 256 em 6 colunas × 4 linhas.
 export const CHAVE_DAS_PECAS = 'pecas';
-export const ARQUIVO_DAS_PECAS = 'assets/pecas.png';
+export const ARQUIVO_DAS_PECAS = 'assets/pecas_spritesheet.png';
 export const TAMANHO_DO_QUADRO = 256;
 
 // Quadro da folha para cada peça do catálogo e quantos quartos de volta (no sentido horário)
-// o desenho precisa girar para ficar na rotação 0° da peça. Peças fora desta lista ainda não
-// têm arte e continuam desenhadas por código (desenharTile).
+// o desenho precisa girar para ficar na rotação 0° da peça. Se a folha não carregar, as peças
+// caem no desenho por código (desenharTile).
 export const ARTE_DAS_PECAS: Readonly<Record<string, { readonly quadro: number; readonly giro: number }>> = {
+  'estufa-duto': { quadro: 0, giro: 0 },
   estufa: { quadro: 1, giro: 0 },
   cupula: { quadro: 2, giro: 0 },
   'habitat-lado-duto-reto': { quadro: 3, giro: 0 },
   'habitat-lado': { quadro: 4, giro: 0 },
+  'habitat-ponte-cristal': { quadro: 5, giro: 0 },
   'habitat-ponte': { quadro: 6, giro: 0 },
   'habitats-opostos': { quadro: 7, giro: 0 },
   'habitats-vizinhos': { quadro: 8, giro: 1 },
+  'habitat-lado-curva-leste': { quadro: 9, giro: 0 },
+  'habitat-lado-curva-oeste': { quadro: 10, giro: 0 },
   'habitat-lado-juncao': { quadro: 11, giro: 0 },
   'habitat-canto-cristal': { quadro: 12, giro: 1 },
   'habitat-canto': { quadro: 13, giro: 1 },
+  'habitat-canto-duto-cristal': { quadro: 14, giro: 1 },
   'habitat-canto-duto': { quadro: 15, giro: 1 },
   'habitat-tres-lados-cristal': { quadro: 16, giro: 0 },
   'habitat-tres-lados': { quadro: 17, giro: 0 },
-  'habitat-tres-lados-escotilha': { quadro: 19, giro: 0 },
+  'habitat-tres-lados-duto-cristal': { quadro: 18, giro: 0 },
+  'habitat-tres-lados-duto': { quadro: 19, giro: 0 },
   'duto-reto': { quadro: 20, giro: 1 },
   'duto-curva': { quadro: 21, giro: 0 },
   'juncao-tres': { quadro: 22, giro: 0 },

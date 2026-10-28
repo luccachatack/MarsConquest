@@ -14,6 +14,8 @@ import { TileDeck } from '../src/jogo/TileDeck';
 import { TileFactory } from '../src/jogo/TileFactory';
 import { comSemente } from './aleatorio';
 
+const TOTAL_DE_PECAS = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
+
 const { HABITAT, SOIL, GREENHOUSE } = Terrain;
 const { HUMANO, CPU_FACIL, CPU_DIFICIL } = TipoDeJogador;
 const { COLONO, CHEFE } = TipoDeMarcador;
@@ -380,7 +382,7 @@ describe('Partida simulada entre computadores', () => {
       }
 
       const board = partida.getBoard();
-      expect(board.quantidadeDeTiles() + partida.quantidadeDeDescartadas()).toBe(60);
+      expect(board.quantidadeDeTiles() + partida.quantidadeDeDescartadas()).toBe(TOTAL_DE_PECAS);
       expect(board.getFeatures().filter((f) => f.estaCompleta() && f.estaOcupada())).toEqual([]);
       const distribuidos = partida.getJogadores().reduce((soma, j) => soma + j.getPontos(), 0);
       expect(distribuidos).toBe(pontosDasConstrucoes);

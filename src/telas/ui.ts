@@ -121,14 +121,14 @@ export function desenharPecaIlustrativa(
   return criarPeca(cena, tile, x, y, tamanho);
 }
 
-// Uma fileira de peças que se encaixam: dutos ligando duas junções à estufa.
+// Uma fileira de peças que se encaixam: dutos ligando uma junção à estufa.
 export function desenharFaixaDeColonia(cena: Phaser.Scene, x: number, y: number, tamanho: number): void {
   const pecas: [string, number][] = [
     ['juncao-tres', 0],
     ['duto-reto', 0],
-    ['estufa-dutos', 1],
     ['duto-reto', 0],
-    ['juncao-tres', 0],
+    ['duto-reto', 0],
+    ['estufa-duto', 1],
   ];
   pecas.forEach(([id, rotacao], i) => desenharPecaIlustrativa(cena, id, rotacao, x + i * tamanho, y, tamanho));
 }

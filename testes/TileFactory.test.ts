@@ -5,6 +5,8 @@ import type { TileDeck } from '../src/jogo/TileDeck';
 import { TileFactory } from '../src/jogo/TileFactory';
 import { comSemente } from './aleatorio';
 
+const TOTAL_DE_PECAS = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
+
 function comprarTodas(baralho: TileDeck): Tile[] {
   const tiles: Tile[] = [];
   for (let tile = baralho.comprarTile(); tile; tile = baralho.comprarTile()) {
@@ -18,17 +20,17 @@ function criarBaralho(): TileDeck {
 }
 
 describe('TileFactory', () => {
-  it('o baralho tem 59 peças na pilha e 1 inicial', () => {
+  it('o baralho tem todas as peças menos 1 na pilha, mais a inicial', () => {
     const baralho = criarBaralho();
-    expect(baralho.quantidadeRestante()).toBe(59);
+    expect(baralho.quantidadeRestante()).toBe(TOTAL_DE_PECAS - 1);
     expect(baralho.getTileInicial()).toBeDefined();
   });
 
   it('ids de instância são todos únicos', () => {
     const baralho = criarBaralho();
     const ids = [baralho.getTileInicial(), ...comprarTodas(baralho)].map((t) => t.id);
-    expect(ids).toHaveLength(60);
-    expect(new Set(ids).size).toBe(60);
+    expect(ids).toHaveLength(TOTAL_DE_PECAS);
+    expect(new Set(ids).size).toBe(TOTAL_DE_PECAS);
   });
 
   it('a quantidade de peças por definição bate com o catálogo', () => {

@@ -5,23 +5,27 @@ import { CENAS, COR_PAINEL, COR_TEXTO, COR_TEXTO_FRACO, COR_TITULO, criarCabecal
 
 const COMO_JOGAR: [string, string][] = [
   ['Objetivo', 'Construir a melhor colônia em Marte. Quem tiver mais pontos no fim da partida vence.'],
-  ['Preparação', 'A peça inicial (estufa com dutos) fica no centro da mesa. As outras 59 peças formam o baralho, embaralhado.'],
+  ['Preparação', 'De 2 a 5 jogadores. A peça inicial (estufa com duto) fica no centro da mesa; as outras 57 peças formam o baralho, embaralhado.'],
   [
     'Seu turno',
     '1. Compre a peça do topo do baralho.\n' +
-      '2. Gire a peça e coloque-a encostada em pelo menos uma peça da mesa.\n' +
-      '3. Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto, solo com solo e escotilha com escotilha.\n' +
+      '2. Gire a peça e coloque-a encostada em pelo menos uma peça da mesa. Se a jogada não valer, tente de novo: você não perde a vez.\n' +
+      '3. Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto e solo com solo.\n' +
       '4. Se quiser, ponha um colono ou o chefe num habitat, duto ou estufa dessa peça.\n' +
       '5. Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
   ],
   [
     'Colonos e chefe',
     'Cada jogador tem 6 colonos e 1 chefe. Só dá para marcar uma construção que ainda não tem ninguém. ' +
-      'Quando ela fica completa, quem tem mais força nela (colono 1, chefe 2) ganha os pontos; no empate, todos ganham. ' +
-      'Os marcadores voltam para a reserva. Construção completa sem marcador não dá pontos.',
+      'Quando ela fica completa, quem tem mais força nela (colono 1, chefe 2) ganha os pontos, mesmo que outro jogador a tenha fechado; no empate, todos ganham. ' +
+      'Os marcadores voltam na hora para a reserva. Construção completa sem marcador não dá pontos.',
   ],
-  ['Fim da partida', 'Quando o baralho acaba, as construções abertas com marcador pontuam para a maioria. Vence quem tiver mais pontos; no empate, quem tiver mais marcadores na reserva.'],
 ];
+
+// Fica no painel da pontuação, abaixo das peças: a coluna "Como jogar" já ocupa a altura da tela.
+const FIM_DA_PARTIDA =
+  'Quando o baralho acaba, cada construção aberta com marcador pontua para a maioria, e esses marcadores ficam no tabuleiro. ' +
+  'Vence quem tiver mais pontos; no empate, quem tiver mais marcadores na reserva. Se ainda empatar, a colocação é dividida.';
 
 // Nenhuma peça do catálogo é só solo; esta existe apenas para a ilustração.
 const SO_SOLO = new DefinicaoTile('so-solo', [
@@ -32,9 +36,8 @@ const SO_SOLO = new DefinicaoTile('so-solo', [
 const PONTUACAO: [string | DefinicaoTile, number, string, string][] = [
   ['habitat-canto-cristal', 0, 'Habitat', '1 ponto por peça, 2 na peça com cristal. Fechado (sem lado aberto), vale o dobro e pontua na hora; aberto, pontua na contagem final.'],
   ['duto-curva', 0, 'Duto', '1 ponto por peça. Completo (pontas numa estufa, bomba ou habitat, ou em circuito), pontua na hora; incompleto, na contagem final.'],
-  ['escotilha-reta', 0, 'Escotilha', 'O duto atravessa a parede do habitat. Só encaixa com outra escotilha, e a peça conta para o duto e para o habitat.'],
-  ['estufa-dutos', 0, 'Estufa', '1 ponto por ela e 1 por peça nas 8 casas em volta. Cercada, pontua na hora (9); senão, na contagem final.'],
-  [SO_SOLO, 0, 'Solo', 'Não pontua.'],
+  ['estufa-duto', 0, 'Estufa', '1 ponto por ela e 1 por peça nas 8 casas em volta. Cercada, pontua na hora (9); senão, na contagem final.'],
+  [SO_SOLO, 0, 'Solo', 'Não aceita marcador e não pontua.'],
 ];
 
 export class CenaRegras extends Phaser.Scene {
@@ -64,5 +67,9 @@ export class CenaRegras extends Phaser.Scene {
       this.add.text(x0 + 116, yLinha, titulo, estilo(16, COR_TEXTO, true));
       this.add.text(x0 + 116, yLinha + 24, texto, { ...estilo(14, COR_TEXTO_FRACO), lineSpacing: 4, wordWrap: { width: 480 } });
     });
+
+    const yFim = 156 + PONTUACAO.length * 104;
+    this.add.text(x0 + 24, yFim, 'Fim da partida', estilo(16, COR_TEXTO, true));
+    this.add.text(x0 + 24, yFim + 24, FIM_DA_PARTIDA, { ...estilo(14, COR_TEXTO_FRACO), lineSpacing: 4, wordWrap: { width: 572 } });
   }
 }

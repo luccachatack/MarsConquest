@@ -12,7 +12,6 @@ const LADOS_VALIDOS = [
   [HABITAT, HABITAT, HABITAT],
   [SOIL, PIPE, SOIL],
   [SOIL, SOIL, SOIL],
-  [HABITAT, PIPE, HABITAT], // escotilha
 ].map((lado) => lado.join(','));
 
 const definicoes = CATALOGO_DE_TILES.map((e) => e.definicao);
@@ -91,9 +90,9 @@ describe('catálogo de peças', () => {
     }
   });
 
-  it('a soma das quantidades é 60', () => {
+  it('a soma das quantidades é 58', () => {
     const total = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
-    expect(total).toBe(60);
+    expect(total).toBe(58);
   });
 
   it('ID_TILE_INICIAL existe no catálogo', () => {

@@ -14,6 +14,7 @@ import { comSemente } from './aleatorio';
 
 const { HABITAT, PIPE, SOIL, GREENHOUSE } = Terrain;
 const TODOS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const TOTAL_DE_PECAS = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
 
 // Definições pequenas, só para os testes (independentes do catálogo).
 const soloPuro = new DefinicaoTile('solo', [{ id: 's1', tipo: SOIL, pontos: TODOS }]);
@@ -54,13 +55,6 @@ const dutoCurva = new DefinicaoTile('duto-curva', [
 const fimDeDuto = new DefinicaoTile('fim-de-duto', [
   { id: 'd1', tipo: PIPE, pontos: [4] },
   { id: 's1', tipo: SOIL, pontos: [5, 6, 7, 8, 9, 10, 11, 0, 1, 2, 3] },
-]);
-// Escotilha ao norte: o duto atravessa o habitat e segue até o sul.
-const escotilha = new DefinicaoTile('escotilha', [
-  { id: 'h1', tipo: HABITAT, pontos: [0, 2] },
-  { id: 'd1', tipo: PIPE, pontos: [1, 7] },
-  { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6] },
-  { id: 's2', tipo: SOIL, pontos: [8, 9, 10, 11] },
 ]);
 
 let contador = 0;
@@ -294,23 +288,6 @@ describe('Board: construções (features)', () => {
     expect(habitat.quantidadeDeTiles()).toBe(2);
   });
 
-  it('na escotilha, a peça faz parte do habitat e do duto', () => {
-    const baixo = peca(escotilha);
-    const board = new Board(baixo);
-    const cima = peca(escotilha);
-    board.colocar(cima, jogada(0, -1, 2));
-
-    const habitat = board.getFeatureDe(baixo, 'h1')!;
-    const duto = board.getFeatureDe(baixo, 'd1')!;
-    expect(habitat).not.toBe(duto);
-    expect(habitat.getTiles()).toEqual(expect.arrayContaining([baixo, cima]));
-    expect(duto.getTiles()).toEqual(expect.arrayContaining([baixo, cima]));
-    // O habitat fecha entre as duas escotilhas; o duto continua aberto nas pontas.
-    expect(habitat.estaCompleta()).toBe(true);
-    expect(duto.getBordasAbertas()).toBe(2);
-    conferirInvariantes(board);
-  });
-
   it('solo não forma construção', () => {
     const board = new Board(peca(soloPuro));
     expect(board.getFeatures()).toEqual([]);
@@ -453,8 +430,8 @@ describe('Board: partida simulada com o catálogo', () => {
         expect(resumir(previstas)).toEqual(resumir(concluidas.map(previsaoDe)));
       }
 
-      expect(board.quantidadeDeTiles() + descartadas).toBe(60);
-      expect(board.quantidadeDeTiles()).toBeGreaterThan(50);
+      expect(board.quantidadeDeTiles() + descartadas).toBe(TOTAL_DE_PECAS);
+      expect(board.quantidadeDeTiles()).toBeGreaterThan(TOTAL_DE_PECAS * 0.8);
       conferirInvariantes(board);
     });
   }

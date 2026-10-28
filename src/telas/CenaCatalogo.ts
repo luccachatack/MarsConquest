@@ -34,13 +34,9 @@ const SIGLAS_LADO: [Direction, string][] = [
   [Direction.WEST, 'O'],
 ];
 
-// getTerrenoEm olha só o ponto do meio; a escotilha só aparece lendo os 3 pontos do lado.
+// O ponto do meio basta para saber o terreno do lado.
 function descreverLado(tile: Tile, d: Direction): string {
-  const [canto, meio] = pontosDoLado(d).map((p) => tile.getTerrenoNoPonto(p));
-  if (canto === Terrain.HABITAT && meio === Terrain.PIPE) {
-    return 'escotilha';
-  }
-  return NOMES_TERRENO[meio];
+  return NOMES_TERRENO[tile.getTerrenoNoPonto(pontosDoLado(d)[1])];
 }
 
 // Posição e tamanho da peça grande no painel do baralho.
