@@ -189,7 +189,7 @@ Abra no navegador o endereço `Local` exibido pelo Vite (normalmente `http://loc
 
 O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos** (`Enter` também abre **Jogar**). Em qualquer tela, o botão **← Menu** ou a tecla `Esc` volta ao menu.
 
-Em **Jogar**, escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para trocar entre **Humano**, **CPU fácil**, **CPU difícil** e **Fora da partida**) e um nome. **Começar partida** (ou `Enter`) abre o tabuleiro. Os jogadores jogam na ordem da lista.
+Em **Jogar**, a tela **Nova partida** mostra a tripulação sobre a capa desfocada; escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para trocar entre **Humano**, **CPU fácil**, **CPU difícil** e **Fora da partida**) e um nome. **Começar partida** (ou `Enter`) abre o tabuleiro. Os jogadores jogam na ordem da lista.
 
 Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem é a vez e a peça a colocar. Cada turno tem duas etapas:
 

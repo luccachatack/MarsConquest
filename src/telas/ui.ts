@@ -25,6 +25,12 @@ export function corCss(cor: number): string {
 }
 
 export const FONTE = 'system-ui, "Segoe UI", sans-serif';
+// Fonte dos títulos, carregada do Google Fonts no index.html; sem internet, cai na do sistema.
+export const FONTE_TITULO = `"Josefin Sans", ${FONTE}`;
+
+// Arte da capa: fundo do menu e, desfocada, da tela de jogadores.
+export const CAPA_DO_MENU = 'capa-menu';
+export const ARQUIVO_DA_CAPA = 'assets/capa-menu.png';
 export const COR_TEXTO = '#e8e9ec';
 export const COR_TEXTO_FRACO = '#9aa1ad';
 export const COR_TITULO = '#ffb454';

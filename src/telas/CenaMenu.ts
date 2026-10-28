@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
-import { CENAS, estilo } from './ui';
+import { ARQUIVO_DA_CAPA, CAPA_DO_MENU as CAPA, CENAS, estilo } from './ui';
 
 const LARGURA = 1280;
 const ALTURA = 720;
-const CAPA = 'capa-menu';
 
 // Botões já desenhados na arte da capa, em pixels da imagem original (1649 × 954).
 const BOTOES: { x0: number; y0: number; x1: number; y1: number; cena: string }[] = [
@@ -21,7 +20,7 @@ export class CenaMenu extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image(CAPA, 'assets/capa-menu.png');
+    this.load.image(CAPA, ARQUIVO_DA_CAPA);
   }
 
   create(): void {
