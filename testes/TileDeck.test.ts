@@ -73,4 +73,18 @@ describe('TileDeck', () => {
     expect(idsCompradas(baralho)).not.toContain(inicial.id);
     expect(baralho.getTileInicial()).toBe(inicial);
   });
+
+  it('lista os tipos de peça que restam, sem repetir, e acompanha as compras', () => {
+    const outro = new DefinicaoTile('outro', [
+      { id: 's1', tipo: Terrain.SOIL, pontos: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+    ]);
+    const baralho = new TileDeck([new Tile('o', outro), ...criarTiles(2)], new Tile('inicial', solo));
+    expect(baralho.getDefinicoesRestantes()).toEqual(expect.arrayContaining([solo, outro]));
+    expect(baralho.getDefinicoesRestantes()).toHaveLength(2);
+    baralho.comprarTile();
+    baralho.comprarTile();
+    expect(baralho.getDefinicoesRestantes()).toEqual([outro]);
+    baralho.comprarTile();
+    expect(baralho.getDefinicoesRestantes()).toEqual([]);
+  });
 });

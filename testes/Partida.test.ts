@@ -245,6 +245,26 @@ describe('Partida: marcadores', () => {
   });
 });
 
+describe('Partida: posições sem encaixe', () => {
+  it('considera a peça da vez e as do baralho, e não a peça já colocada', () => {
+    // Em cima do habitat inicial só um habitat serve. A peça da vez é um habitat; o baralho, só solo.
+    const partida = new Partida(jogadores('Ana', 'Bia'), baralho(habitatNorte, habitatNorte, soloPuro, soloPuro));
+    expect(partida.posicoesSemEncaixe()).toEqual([]);
+
+    // Ana coloca o habitat ao lado: agora nenhuma peça restante cabe em cima da inicial.
+    partida.colocarPeca(jogada(1, 0, 1));
+    expect(partida.posicoesSemEncaixe().map((p) => p.chave())).toContain('0,-1');
+    partida.pularMarcador();
+    expect(partida.posicoesSemEncaixe().map((p) => p.chave())).toContain('0,-1');
+  });
+
+  it('no fim da partida não marca nada', () => {
+    const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, soloPuro));
+    partida.jogar(jogada(1, 0));
+    expect(partida.posicoesSemEncaixe()).toEqual([]);
+  });
+});
+
 describe('Partida: classificação', () => {
   it('maior placar primeiro; no empate, mais marcadores na reserva (RN11); se ainda empatar, divide', () => {
     const partida = new Partida(jogadores('Ana', 'Bia', 'Caio', 'Duda'), baralho(soloPuro));

@@ -1,3 +1,4 @@
+import type { DefinicaoTile } from './DefinicaoTile';
 import { Direction, TODAS_DIRECOES } from './Direction';
 import { Feature } from './Feature';
 import { Jogada } from './Jogada';
@@ -5,7 +6,7 @@ import type { Marcador } from './Marcador';
 import { ladoDoPonto, pontoOposto, rotacionarPonto } from './PontosDeBorda';
 import { Position } from './Position';
 import { Terrain } from './Terrain';
-import type { Tile } from './Tile';
+import { Tile } from './Tile';
 import { UnionFind } from './UnionFind';
 
 // Terrenos que formam construções entre peças. A estufa fica dentro de uma peça só,
@@ -127,6 +128,17 @@ export class Board {
       }
     }
     return jogadas;
+  }
+
+  // Posições disponíveis onde nenhuma das definições encaixa, em nenhuma rotação.
+  // Com as peças que ainda restam, são buracos que nunca serão preenchidos: as construções
+  // que encostam neles não podem mais ser completadas.
+  posicoesSemEncaixe(definicoes: readonly DefinicaoTile[]): Position[] {
+    const testes = definicoes.map((d) => new Tile(`teste-${d.id}`, d));
+    return this.posicoesDisponiveis().filter(
+      (position) =>
+        !testes.some((tile) => [0, 1, 2, 3].some((rotacao) => this.podeColocar(tile, new Jogada(position, rotacao)))),
+    );
   }
 
   // Coloca a peça e devolve as construções que ela completou.

@@ -1,3 +1,4 @@
+import type { DefinicaoTile } from './DefinicaoTile';
 import type { Tile } from './Tile';
 
 // Devolve um número em [0, 1), como Math.random. Injetada para testes repetíveis (RNF06).
@@ -33,6 +34,11 @@ export class TileDeck {
 
   quantidadeRestante(): number {
     return this.pilha.length;
+  }
+
+  // Os tipos de peça que ainda restam, sem repetir e sem revelar a ordem da pilha.
+  getDefinicoesRestantes(): DefinicaoTile[] {
+    return [...new Set(this.pilha.map((t) => t.getDefinicao()))];
   }
 
   getTileInicial(): Tile {

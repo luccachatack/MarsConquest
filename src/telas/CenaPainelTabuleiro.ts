@@ -30,6 +30,8 @@ const Y_VEZ = 290;
 const Y_PREVIA = 318;
 const Y_BOTOES = 428;
 const COR_LINHA_DA_VEZ = 0x2c313d;
+// Espaço entre o título "Acontecimentos" e os botões Nova partida / Jogadores.
+const ALTURA_DOS_EVENTOS = 132;
 
 interface LinhaDoPlacar {
   fundo: Phaser.GameObjects.Graphics;
@@ -131,7 +133,11 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     this.textoBaralho.setText(`Baralho: ${estado.restantes} · Descartadas: ${estado.descartadas}`);
     this.atualizarPlacar(estado);
     this.atualizarVez(estado);
-    this.textoEventos.setText(estado.eventos.map((e) => `• ${e}`).join('\n'));
+    // Mostra os acontecimentos mais recentes que couberem acima dos botões de baixo.
+    for (let n = estado.eventos.length; n >= 0; n--) {
+      this.textoEventos.setText(estado.eventos.slice(0, n).map((e) => `• ${e}`).join('\n'));
+      if (this.textoEventos.height <= ALTURA_DOS_EVENTOS) break;
+    }
 
     if (estado.classificacao && !this.resultadoJaMostrado) {
       this.resultadoJaMostrado = true;

@@ -21,6 +21,7 @@ export const LARGURA_TABULEIRO = 900;
 
 const COR_VALIDA = 0x5fd38d;
 const COR_DISPONIVEL = 0x5d6878;
+const COR_SEM_ENCAIXE = 0xe0614f;
 const DISTANCIA_PARA_ARRASTAR = 6;
 // Raio, em pixels do mundo, em que um clique escolhe uma região para o marcador.
 const RAIO_DA_OPCAO = 16;
@@ -95,8 +96,11 @@ export class CenaTabuleiro extends Phaser.Scene {
   // Na etapa da peça: para cada posição (chave "x,y"), as rotações em que a peça encaixa.
   private encaixes = new Map<string, number[]>();
   private posicaoSobMouse: Position | null = null;
+  // Posições onde nenhuma peça que resta encaixa (chaves "x,y"); só aumentam durante a partida.
+  private semEncaixe = new Set<string>();
 
   private destaques!: Phaser.GameObjects.Graphics;
+  private cruzes!: Phaser.GameObjects.Graphics;
   private fantasma!: Phaser.GameObjects.Graphics;
   private ultima!: Phaser.GameObjects.Graphics;
   private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
@@ -122,6 +126,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.desenhosDosMarcadores = new Map();
     this.encaixes = new Map();
     this.posicaoSobMouse = null;
+    this.semEncaixe = new Set();
 
     const camera = this.cameras.main;
     camera.setViewport(0, 0, LARGURA_TABULEIRO, this.scale.height);
@@ -131,6 +136,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.desenharPeca(baralho.getTileInicial());
     // Camadas: peças (0) < destaques < prévia < contorno da última peça < opções de marcador < marcadores < textos.
     this.destaques = this.add.graphics().setDepth(1);
+    this.cruzes = this.add.graphics().setDepth(1);
     this.fantasma = this.add.graphics().setAlpha(0.6).setDepth(2);
     this.ultima = this.add.graphics().setDepth(3);
     this.camadaDeOpcoes = this.add.graphics().setDepth(4);
@@ -374,12 +380,37 @@ export class CenaTabuleiro extends Phaser.Scene {
         }
       }
     }
+    this.desenharPosicoesSemEncaixe();
     const cor = this.partida.estaEncerrada() ? 0xffffff : this.partida.getJogadorDaVez().cor;
     for (const o of this.opcoes) {
       this.camadaDeOpcoes.fillStyle(cor, 0.3).fillCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
       this.camadaDeOpcoes.lineStyle(3, cor, 1).strokeCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
     }
     this.emitirEstado();
+  }
+
+  // X vermelho onde nenhuma peça que resta encaixa: o que encosta ali nunca será completado.
+  private desenharPosicoesSemEncaixe(): void {
+    // No fim, sem peças, nada mais cabe em lugar nenhum: mantém os X que já estavam.
+    if (this.partida.estaEncerrada()) return;
+    const posicoes = this.partida.posicoesSemEncaixe();
+    const novas = posicoes.filter((p) => !this.semEncaixe.has(p.chave())).length;
+    if (novas > 0) {
+      this.registrar(
+        novas === 1 ? 'Um lugar ficou sem peça que caiba (X).' : `${novas} lugares ficaram sem peça que caiba (X).`,
+      );
+    }
+    this.semEncaixe = new Set(posicoes.map((p) => p.chave()));
+
+    this.cruzes.clear();
+    const margem = TAMANHO_PECA * 0.28;
+    for (const p of posicoes) {
+      const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
+      this.cruzes.fillStyle(COR_SEM_ENCAIXE, 0.1).fillRect(x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8);
+      this.cruzes.lineStyle(6, COR_SEM_ENCAIXE, 0.85);
+      this.cruzes.lineBetween(x + margem, y + margem, x + TAMANHO_PECA - margem, y + TAMANHO_PECA - margem);
+      this.cruzes.lineBetween(x + TAMANHO_PECA - margem, y + margem, x + margem, y + TAMANHO_PECA - margem);
+    }
   }
 
   private registrar(texto: string): void {

@@ -311,6 +311,30 @@ function resumir(construcoes: readonly Pick<ConstrucaoPrevista, 'tipo' | 'quanti
   return construcoes.map((c) => `${c.tipo}:${c.quantidadeDeTiles}:${c.quantidadeDeCristais}`).sort();
 }
 
+describe('Board: posições sem encaixe', () => {
+  it('marca a posição que nenhuma das peças restantes consegue preencher', () => {
+    // Em cima da peça inicial é preciso um habitat virado para baixo; só com solo, nunca.
+    const board = new Board(peca(habitatNorte));
+    expect(board.posicoesSemEncaixe([soloPuro]).map((p) => p.chave())).toEqual(['0,-1']);
+    expect(board.posicoesSemEncaixe([soloPuro, habitatNorte])).toEqual([]);
+  });
+
+  it('confere todas as rotações e todas as vizinhas da posição', () => {
+    // Buraco entre um habitat (em cima) e solo (embaixo): o habitat-norte girado serve.
+    const board = new Board(peca(habitatNorte));
+    board.colocar(peca(soloPuro), jogada(1, 0));
+    expect(board.posicoesSemEncaixe([habitatNorte]).map((p) => p.chave())).not.toContain('0,-1');
+    // Com outro habitat virado para o buraco (pelo leste), só uma peça com habitat em dois lados serviria.
+    board.colocar(peca(habitatNorte), jogada(1, -1, 3));
+    expect(board.posicoesSemEncaixe([habitatNorte, soloPuro]).map((p) => p.chave())).toContain('0,-1');
+  });
+
+  it('sem peças restantes, nenhuma posição tem encaixe', () => {
+    const board = new Board(peca(soloPuro));
+    expect(board.posicoesSemEncaixe([])).toHaveLength(4);
+  });
+});
+
 describe('Board: previsão de jogada', () => {
   it('prevê a peça que une dois habitats sem mudar o tabuleiro', () => {
     const board = new Board(peca(soloPuro));

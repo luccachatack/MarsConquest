@@ -196,7 +196,7 @@ Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem �
 1. **Peça:** as posições em verde são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia; se encaixar de mais de um jeito, `R` alterna entre esses jeitos.
 2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. Se nenhuma região aceita marcador, o turno termina sozinho.
 
-Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Quando o baralho acaba, aparece a classificação final. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, aparece a classificação final. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 | Ação | Controle |
 | --- | --- |

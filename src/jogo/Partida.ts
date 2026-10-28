@@ -12,6 +12,7 @@ import type { Jogada } from './Jogada';
 import { MAX_JOGADORES, MIN_JOGADORES, type Jogador } from './Jogador';
 import { TipoDeMarcador, type Marcador } from './Marcador';
 import { pontosDaFeature } from './Pontuacao';
+import type { Position } from './Position';
 import { Terrain } from './Terrain';
 import type { Tile } from './Tile';
 import type { TileDeck } from './TileDeck';
@@ -111,6 +112,15 @@ export class Partida {
 
   estaEncerrada(): boolean {
     return this.estado === ENCERRADA;
+  }
+
+  // Posições onde nenhuma peça que ainda resta encaixa: a peça da vez (se ainda não foi
+  // colocada) e as do baralho. As construções que encostam nelas nunca serão completadas.
+  posicoesSemEncaixe(): Position[] {
+    if (this.estaEncerrada()) return [];
+    const definicoes = new Set(this.baralho.getDefinicoesRestantes());
+    if (this.atual && !this.atual.estaPosicionado()) definicoes.add(this.atual.getDefinicao());
+    return this.board.posicoesSemEncaixe([...definicoes]);
   }
 
   // Todos os marcadores que estão no tabuleiro agora.
