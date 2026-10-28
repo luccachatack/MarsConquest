@@ -14,7 +14,7 @@ Ainda não há tabuleiro, construções, pontuação, IA ou partida.
 
 A especificação da fase 1 está em [docs/fase-1-especificacao.md](docs/fase-1-especificacao.md). O roteiro completo está em [docs/plano-proximos-passos.pdf](docs/plano-proximos-passos.pdf); ele foi escrito antes da troca de tema e ainda usa os nomes antigos.
 
-O repositório do projeto é [luccachatack/carcassonne](https://github.com/luccachatack/carcassonne), com branch principal `main` e remoto local `origin`.
+O repositório do projeto é [luccachatack/MarsConquest](https://github.com/luccachatack/MarsConquest), com branch principal `main` e remoto local `origin`.
 
 Este README será atualizado junto com o desenvolvimento para refletir o que realmente está implementado.
 
@@ -73,8 +73,8 @@ Nesta máquina foi preparada uma cópia portátil em `.tools/node-v24.21.0-win-x
 Abra um terminal na pasta onde deseja guardar o projeto e execute:
 
 ```powershell
-git clone https://github.com/luccachatack/carcassonne.git Carcassonne
-cd Carcassonne
+git clone https://github.com/luccachatack/MarsConquest.git MarsConquest
+cd MarsConquest
 code .
 ```
 
