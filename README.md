@@ -8,7 +8,7 @@ Trabalho da disciplina de Projeto de Software: um jogo digital local e original 
 
 Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`), o modelo de 12 pontos de borda (`PontosDeBorda`), as peças (`Regiao`, `DefinicaoTile`, `Tile`), a `Jogada`, o catálogo de peças (22 tipos, 60 peças) e a criação do baralho (`TileFactory`, `TileDeck`). Da fase 2, o tabuleiro (`Board`): valida as jogadas, lista as posições válidas e monta as construções (`Feature`: habitats e dutos), juntando as que uma peça liga (`UnionFind`) e detectando quando ficam completas. Da fase 3, a partida (`Partida`): jogadores (`Jogador`) em turnos de duas etapas, colocar a peça e depois um marcador (`Marcador`: colonos e chefe), controladas pelo padrão State (`EstadoDaPartida`). A partida também faz o descarte de peças sem encaixe, a pontuação por maioria de marcadores (`Pontuacao`) e a classificação final com desempate. Em `src/ia/`, as estratégias do computador: fácil (sorteia) e difícil (avalia cada jogada e marcador com `Board.preverConstrucoes`). Nada disso depende do Phaser. Os testes estão em `testes/`.
 
-A interface tem um **menu** (`CenaMenu`) com as opções Jogar, Peças, Regras e Créditos. **Jogar** abre a escolha de jogadores (`CenaPreparacao`) e depois a partida (`CenaTabuleiro`, com o painel `CenaPainelTabuleiro`, que mostra o placar, a vez e os acontecimentos). A tela **Peças** (`CenaCatalogo`) mostra as 22 peças desenhadas a partir das regiões, gira uma peça com um clique e compra peças de um baralho embaralhado. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. O desenho das peças (`src/telas/desenharTile.ts`) usa só os dados de `Tile.getRegioes()`, então também serve para conferir visualmente o catálogo e a rotação. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
+A interface tem um **menu** (`CenaMenu`) com a arte da capa em tela cheia (`public/assets/capa-menu.png`); os botões Jogar, Peças, Regras e Créditos pintados na arte são clicáveis e crescem ao passar o mouse. **Jogar** abre a escolha de jogadores (`CenaPreparacao`) e depois a partida (`CenaTabuleiro`, com o painel `CenaPainelTabuleiro`, que mostra o placar, a vez e os acontecimentos). A tela **Peças** (`CenaCatalogo`) mostra as 22 peças desenhadas a partir das regiões, gira uma peça com um clique e compra peças de um baralho embaralhado. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. O desenho das peças (`src/telas/desenharTile.ts`) usa só os dados de `Tile.getRegioes()`, então também serve para conferir visualmente o catálogo e a rotação. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
 
 Falta decidir a pontuação da estufa (fases 4 a 6 do plano: ajustes de pontuação, IA e acabamento).
 
@@ -35,7 +35,7 @@ Na lista de arquivos do GitHub, a coluna do meio mostra a mensagem do **último 
 | Item | O que é |
 | --- | --- |
 | `docs/` | Documentação do trabalho: especificações das fases 1 a 3, regras de pontuação, plano de próximos passos e os PDFs de referência do grupo. |
-| `public/assets/` | Lugar reservado para imagens e sons do jogo; por enquanto está vazio, porque as peças são desenhadas por código. |
+| `public/assets/` | Imagens do jogo servidas direto ao navegador; por enquanto só a arte da capa do menu (`capa-menu.png`), porque as peças são desenhadas por código. |
 | `src/` | Código do jogo: as regras em `jogo/`, a inteligência do computador em `ia/` e as telas feitas com Phaser em `telas/`. |
 | `testes/` | Testes automatizados das regras (Vitest), um arquivo por classe ou assunto, incluindo partidas simuladas inteiras. |
 | `.gitignore` | Lista do que o Git deve ignorar, como `node_modules/`, o build em `dist/` e a pasta local `.tools/`. |
@@ -187,7 +187,7 @@ npm run dev
 
 Abra no navegador o endereço `Local` exibido pelo Vite (normalmente `http://localhost:5173/`), em vez de abrir `index.html` diretamente pelo explorador de arquivos.
 
-O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos**. Em qualquer tela, o botão **← Menu** ou a tecla `Esc` volta ao menu.
+O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos** (`Enter` também abre **Jogar**). Em qualquer tela, o botão **← Menu** ou a tecla `Esc` volta ao menu.
 
 Em **Jogar**, escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para trocar entre **Humano**, **CPU fácil**, **CPU difícil** e **Fora da partida**) e um nome. **Começar partida** (ou `Enter`) abre o tabuleiro. Os jogadores jogam na ordem da lista.
 

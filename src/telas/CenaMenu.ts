@@ -1,58 +1,76 @@
 import Phaser from 'phaser';
-import { CENAS, COR_TEXTO_FRACO, COR_TITULO, criarBotao, desenharFaixaDeColonia, estilo } from './ui';
+import { CENAS, estilo } from './ui';
 
 const LARGURA = 1280;
 const ALTURA = 720;
+const CAPA = 'capa-menu';
 
+// Botões já desenhados na arte da capa, em pixels da imagem original (1649 × 954).
+const BOTOES: { x0: number; y0: number; x1: number; y1: number; cena: string }[] = [
+  { x0: 632, y0: 390, x1: 1019, y1: 481, cena: CENAS.preparacao },
+  { x0: 632, y0: 497, x1: 1019, y1: 588, cena: CENAS.pecas },
+  { x0: 632, y0: 602, x1: 1019, y1: 692, cena: CENAS.regras },
+  { x0: 632, y0: 706, x1: 1019, y1: 796, cena: CENAS.creditos },
+];
+const AUMENTO_AO_PASSAR = 1.06;
+
+// Menu principal: a arte da capa ocupa a tela toda, e os botões pintados nela são clicáveis.
 export class CenaMenu extends Phaser.Scene {
   constructor() {
     super(CENAS.menu);
   }
 
+  preload(): void {
+    this.load.image(CAPA, 'assets/capa-menu.png');
+  }
+
   create(): void {
-    this.desenharCeu();
-    this.desenharPlaneta();
-    desenharFaixaDeColonia(this, 60, 600, 64);
+    const capa = this.add.image(LARGURA / 2, ALTURA / 2, CAPA);
+    // Cobre a tela inteira: a imagem é um pouco mais alta que 16:9, então sobra um pouco em cima e embaixo.
+    const escala = Math.max(LARGURA / capa.width, ALTURA / capa.height);
+    capa.setScale(escala);
+    const naTela = (x: number, y: number) => ({
+      x: LARGURA / 2 + (x - capa.width / 2) * escala,
+      y: ALTURA / 2 + (y - capa.height / 2) * escala,
+    });
 
-    this.add.text(LARGURA / 2, 150, 'MARS CONQUEST', estilo(64, COR_TITULO, true)).setOrigin(0.5);
-    this.add
-      .text(LARGURA / 2, 214, 'Construa uma base em Marte, peça por peça.', estilo(18, COR_TEXTO_FRACO))
-      .setOrigin(0.5);
+    for (const { x0, y0, x1, y1, cena } of BOTOES) {
+      const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+      const centro = naTela(cx, cy);
+      // Uma cópia só do pedaço do botão, por cima da capa, para ele poder crescer sozinho.
+      const botao = this.add
+        .image(centro.x, centro.y, CAPA)
+        .setCrop(x0, y0, x1 - x0, y1 - y0)
+        .setOrigin(cx / capa.width, cy / capa.height)
+        .setScale(escala);
+      const brilho = this.add.graphics().setVisible(false);
+      const [largura, altura] = [(x1 - x0) * escala, (y1 - y0) * escala];
+      brilho
+        .lineStyle(3, 0xffd9a0, 0.9)
+        .strokeRoundedRect(centro.x - (largura * AUMENTO_AO_PASSAR) / 2, centro.y - (altura * AUMENTO_AO_PASSAR) / 2,
+          largura * AUMENTO_AO_PASSAR, altura * AUMENTO_AO_PASSAR, 10);
 
-    const largura = 300;
-    const x = (LARGURA - largura) / 2;
-    const opcoes: [string, () => void][] = [
-      ['Jogar', () => this.scene.start(CENAS.preparacao)],
-      ['Peças', () => this.scene.start(CENAS.pecas)],
-      ['Regras', () => this.scene.start(CENAS.regras)],
-      ['Créditos', () => this.scene.start(CENAS.creditos)],
-    ];
-    opcoes.forEach(([texto, acao], i) => criarBotao(this, x, 270 + i * 72, largura, 56, texto, acao, 20));
-
-    this.add.text(LARGURA - 24, ALTURA - 20, 'v0.1.0 · Projeto de Software', estilo(12, COR_TEXTO_FRACO)).setOrigin(1, 1);
-  }
-
-  // Estrelas em posições fixas (gerador com semente), para o fundo não mudar a cada visita.
-  private desenharCeu(): void {
-    let semente = 20261027;
-    const aleatorio = () => (semente = (semente * 16807) % 2147483647) / 2147483647;
-    const g = this.add.graphics();
-    for (let i = 0; i < 140; i++) {
-      g.fillStyle(0xffffff, 0.25 + aleatorio() * 0.6);
-      g.fillCircle(aleatorio() * LARGURA, aleatorio() * ALTURA, aleatorio() < 0.9 ? 1 : 2);
+      const crescer = (fator: number) =>
+        this.tweens.add({ targets: botao, scale: escala * fator, duration: 120, ease: 'Quad.easeOut' });
+      this.add
+        .zone(centro.x, centro.y, largura, altura)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => {
+          crescer(AUMENTO_AO_PASSAR);
+          brilho.setVisible(true);
+        })
+        .on('pointerout', () => {
+          crescer(1);
+          brilho.setVisible(false);
+        })
+        .on('pointerdown', () => crescer(0.97))
+        .on('pointerup', () => this.scene.start(cena));
     }
-  }
 
-  private desenharPlaneta(): void {
-    const g = this.add.graphics();
-    const [cx, cy, r] = [1150, 720, 330];
-    g.fillStyle(0xd9703f, 0.12).fillCircle(cx, cy, r + 26);
-    g.fillStyle(0xb4492a, 1).fillCircle(cx, cy, r);
-    g.fillStyle(0x9c3c22, 1);
-    g.fillCircle(cx - 160, cy - 200, 34);
-    g.fillCircle(cx - 40, cy - 250, 18);
-    g.fillCircle(cx - 230, cy - 90, 22);
-    g.fillCircle(cx + 40, cy - 150, 46);
-    g.fillCircle(cx - 110, cy - 60, 14);
+    this.input.keyboard?.on('keydown-ENTER', () => this.scene.start(CENAS.preparacao));
+    this.add
+      .text(LARGURA - 16, ALTURA - 12, 'v0.1.0 · Projeto de Software', { ...estilo(12, '#f3e3cf'), stroke: '#2a1a12', strokeThickness: 3 })
+      .setOrigin(1, 1)
+      .setAlpha(0.8);
   }
 }
