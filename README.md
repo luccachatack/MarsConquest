@@ -1,12 +1,18 @@
-# Carcassonne — Projeto acadêmico
+# Colônia Marte — Projeto acadêmico
 
-Trabalho da disciplina de Projeto de Software: uma versão digital local de Carcassonne. O desenvolvimento será feito aos poucos, usando **TypeScript** para as classes e regras e **Phaser** para a interface.
+Trabalho da disciplina de Projeto de Software: um jogo digital local e original de colocar peças, em que os jogadores constroem uma base em Marte com habitats, dutos, estufas e solo. O desenvolvimento será feito aos poucos, usando **TypeScript** para as classes e regras e **Phaser** para a interface.
 
 ## Estado atual
 
-**Ambiente de desenvolvimento configurado. Ainda não há jogo implementado.**
+**Fase 1 — núcleo de peças: implementada e testada. Ainda não é possível jogar.**
 
-O projeto contém a estrutura inicial e a configuração de TypeScript, Phaser e Vite. `index.html` carrega `src/main.ts`, que contém apenas um comentário. O servidor pode abrir a página, mas ela permanece em branco: não há cenas Phaser, regras, IA, controles ou partida. Testes automatizados ainda não estão configurados.
+Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`), o modelo de 12 pontos de borda (`PontosDeBorda`), as peças (`Regiao`, `DefinicaoTile`, `Tile`), a `Jogada`, o catálogo de peças (22 tipos, 60 peças) e a criação do baralho (`TileFactory`, `TileDeck`). Nada disso depende do Phaser. Os testes estão em `testes/`.
+
+A interface tem um **menu** (`CenaMenu`) com as opções Jogar (ainda sem partida), Peças, Regras e Créditos. A tela **Peças** (`CenaCatalogo`) mostra as 22 peças desenhadas a partir das regiões, gira uma peça com um clique e compra peças de um baralho embaralhado. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. O desenho das peças (`src/telas/desenharTile.ts`) usa só os dados de `Tile.getRegioes()`, então também serve para conferir visualmente o catálogo e a rotação. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
+
+Ainda não há tabuleiro, construções, pontuação, IA ou partida.
+
+A especificação da fase 1 está em [docs/fase-1-especificacao.md](docs/fase-1-especificacao.md). O roteiro completo está em [docs/plano-proximos-passos.pdf](docs/plano-proximos-passos.pdf); ele foi escrito antes da troca de tema e ainda usa os nomes antigos.
 
 O repositório do projeto é [luccachatack/carcassonne](https://github.com/luccachatack/carcassonne), com branch principal `main` e remoto local `origin`.
 
@@ -16,35 +22,39 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 
 - Partida local entre 2 a 5 jogadores humanos.
 - Partida de 1 humano contra 1 computador, com IA fácil e difícil.
-- Construção do tabuleiro, colocação de meeples e pontuação.
-- Meeple grande incluído.
-- Desempate pela quantidade de meeples disponíveis antes da contagem final.
+- Construção do tabuleiro, colocação de marcadores e pontuação.
+- Marcador grande incluído.
+- Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Essas funcionalidades estão planejadas, não implementadas nesta etapa.
+Essas funcionalidades estão planejadas, não implementadas nesta etapa. As regras de pontuação já decididas (habitat e duto) e as pendentes (estufa, marcadores e solo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 ## Organização atual
 
 ```text
 src/
   main.ts       # Ponto de entrada carregado pelo Vite
-  jogo/         # Futuras classes e regras
+  jogo/         # Classes e regras (fase 1: peças, catálogo e baralho)
   ia/           # Futuras estratégias do computador
-  telas/        # Futura interface com Phaser
+  telas/        # Interface com Phaser (menu, peças, regras, créditos e desenho das peças)
 public/
   assets/       # Futuros recursos visuais e sonoros
-testes/         # Testes adicionados durante a implementação
+testes/         # Testes das regras (*.test.ts), executados pelo Vitest
+  aleatorio.ts  # Gerador com semente para testes repetíveis
 docs/
   referencias/  # PDFs e diagrama do grupo
+  plano-proximos-passos.pdf  # Análise e roteiro em fases
+  fase-1-especificacao.md    # Especificação da fase 1 (peças)
 index.html      # HTML mínimo que carrega src/main.ts
 package.json    # Metadados, dependências e comandos do projeto
 package-lock.json # Versões exatas das dependências resolvidas pelo npm
-tsconfig.json   # Configuração inicial do TypeScript
+tsconfig.json   # Configuração do TypeScript (inclui src/ e testes/)
+vitest.config.ts # Configuração dos testes
 .gitignore      # Arquivos locais e gerados a ignorar no Git
 README.md
 PROMPT_CARCASSONNE.md
 ```
 
-As pastas `src/jogo`, `src/ia`, `src/telas`, `public/assets` e `testes` contêm somente um `.gitkeep` vazio para preservá-las no Git. As classes serão adicionadas conforme cada parte for desenvolvida, sem subdivisões por categoria dentro de `jogo` nesta etapa. As regras deverão ser independentes da interface.
+As pastas `src/ia` e `public/assets` contêm somente um `.gitkeep` vazio para preservá-las no Git. As classes serão adicionadas conforme cada parte for desenvolvida, sem subdivisões por categoria dentro de `jogo` nesta etapa. As regras deverão ser independentes da interface.
 
 ## Ferramentas
 
@@ -129,7 +139,7 @@ npm ci
 
 Esse comando recria `node_modules` a partir do lockfile e exige que ele esteja de acordo com `package.json`. Ao alterar dependências de propósito, use `npm install` e versione os dois arquivos juntos.
 
-Versões instaladas: **Phaser 4.2.1**, **TypeScript 7.0.2** e **Vite 8.3.2**. Phaser é uma dependência do jogo; TypeScript e Vite são dependências de desenvolvimento. As versões diretas estão fixadas no `package.json`, e as dependências transitivas estão registradas no lockfile.
+Versões instaladas: **Phaser 4.2.1**, **TypeScript 7.0.2**, **Vite 8.3.2** e **Vitest 5.0.4**. Phaser é uma dependência do jogo; TypeScript, Vite e Vitest são dependências de desenvolvimento. As versões diretas estão fixadas no `package.json`, e as dependências transitivas estão registradas no lockfile.
 
 No PowerShell, se a política de execução bloquear `npm.ps1`, use `npm.cmd` no lugar de `npm` nos comandos abaixo, sem alterar a política do Windows.
 
@@ -139,6 +149,8 @@ No PowerShell, se a política de execução bloquear `npm.ps1`, use `npm.cmd` no
 | `npm run typecheck` | Confere os tipos com TypeScript, sem gerar arquivos. |
 | `npm run build` | Confere os tipos e gera o build em `dist/`. |
 | `npm run preview` | Serve localmente o build existente em `dist/`. Execute o build antes. |
+| `npm run test` | Executa uma vez todos os testes de `testes/**/*.test.ts`. |
+| `npm run test:watch` | Executa os testes e repete a cada alteração salva. Encerre com `q` ou `Ctrl+C`. |
 
 Use o endereço `Local` exibido pelo Vite no terminal. Encerre o servidor com `Ctrl+C`. O preview serve para conferir o build localmente; não publica o projeto.
 
@@ -153,11 +165,32 @@ Os endereços exibidos foram `http://127.0.0.1:5173/` para desenvolvimento e `ht
 
 Validação realizada no Windows com Node 24.21.0 e npm 11.19.0: instalação reproduzível com `npm ci --offline` usando o cache local, `npm run build` (incluindo `typecheck`) e respostas HTTP 200 do HTML e JavaScript tanto no desenvolvimento quanto no preview. Os servidores usados nessa conferência foram encerrados. Isso valida a configuração inicial, sem representar testes de jogabilidade.
 
-**Testes automatizados:** ainda não disponíveis. Não há script `test`; a verificação de tipos não testa regras do jogo. A pasta `testes` continua reservada para as futuras implementações.
+**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. A fase 1 tem 8 arquivos e 53 testes, que cobrem os casos da especificação, inclusive a validação de todas as peças do catálogo. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
+
+O `tsconfig.json` usa `skipLibCheck: true`: o TypeScript não confere os arquivos de tipos das bibliotecas em `node_modules` (os tipos do Vitest dependem de tipos do Node que o projeto não usa), mas continua conferindo todo o código de `src/` e `testes/`.
+
+Validação realizada no Windows com Node 24.21.0 e npm 11.19.0 após adicionar o Vitest: `npm run test` sem testes (sucesso), com um teste temporário correto (sucesso) e com o mesmo teste alterado para falhar (falha detectada); `npm run typecheck` acusou um erro de tipo proposital em `testes/`; `npm run build` concluído. O teste temporário foi removido.
 
 ## Como jogar
 
-**Ainda não é possível jogar.** `npm run dev` abre o ambiente de desenvolvimento, mas a página fica em branco. Phaser está reservado para a futura interface; ainda não é inicializado. Use o endereço do servidor, em vez de abrir `index.html` diretamente pelo explorador de arquivos.
+**Ainda não é possível jogar uma partida.** Já dá para abrir o menu e as telas de peças, regras e créditos:
+
+```powershell
+npm run dev
+```
+
+Abra no navegador o endereço `Local` exibido pelo Vite (normalmente `http://localhost:5173/`), em vez de abrir `index.html` diretamente pelo explorador de arquivos.
+
+O menu tem quatro opções: **Jogar** (ainda mostra só um aviso de que está em construção), **Peças**, **Regras** e **Créditos**. Em qualquer tela, o botão **← Menu** ou a tecla `Esc` volta ao menu.
+
+Na tela **Peças**:
+
+| Ação | Controle |
+| --- | --- |
+| Girar uma peça do catálogo | Clique nela |
+| Comprar a próxima peça do baralho | Botão **Comprar peça** ou `Espaço` |
+| Girar a peça comprada | Clique nela ou `R` |
+| Recomeçar com um baralho novo | Botão **Novo baralho** |
 
 Quando houver uma versão jogável, esta seção terá o comando correto para iniciar, como acessar pelo navegador, os modos disponíveis e os controles. Os comandos serão documentados de acordo com a implementação real, sem exigir que o jogador use Codex para jogar.
 
@@ -166,6 +199,9 @@ Quando houver uma versão jogável, esta seção terá o comando correto para in
 - [Apresentação e escopo](docs/referencias/carcassonne__completo.pdf).
 - [Requisitos](docs/referencias/Rfs.pdf).
 - [Diagrama de classes](docs/referencias/diagrama-classes.png).
+- [Plano dos próximos passos](docs/plano-proximos-passos.pdf).
+- [Especificação da fase 1](docs/fase-1-especificacao.md).
+- [Regras de pontuação](docs/regras-de-pontuacao.md).
 - [Prompt da etapa inicial](PROMPT_CARCASSONNE.md).
 
 ## Integrantes
@@ -176,4 +212,4 @@ Quando houver uma versão jogável, esta seção terá o comando correto para in
 - Pedro Sixel
 - Vitor Lemos
 
-Projeto acadêmico baseado no jogo Carcassonne, de Klaus-Jürgen Wrede. Os integrantes acima são responsáveis por esta implementação acadêmica.
+Colônia Marte é um jogo original do gênero de colocação de peças, com tema, catálogo de peças e regras próprios. Os integrantes acima são responsáveis por esta implementação acadêmica.
