@@ -102,6 +102,16 @@ describe('Tile', () => {
     expect(nova.conectaCom(vizinhaNorte, Direction.NORTH)).toBe(true);
   });
 
+  it('conectaCom pode supor outra rotação sem girar a peça', () => {
+    const vizinhaNorte = new Tile('v', habitatNorte);
+    vizinhaNorte.definirRotacao(2);
+    const nova = new Tile('n', habitatNorte);
+    nova.definirRotacao(1);
+    expect(nova.conectaCom(vizinhaNorte, Direction.NORTH, 0)).toBe(true);
+    expect(nova.conectaCom(vizinhaNorte, Direction.NORTH, 3)).toBe(false);
+    expect(nova.getRotacao()).toBe(1);
+  });
+
   it('depois de posicionar, a peça não pode mais girar nem mudar de lugar', () => {
     const tile = new Tile('t-1', habitatNorte);
     tile.posicionar(new Position(2, 3));

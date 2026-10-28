@@ -62,10 +62,11 @@ export class Tile {
   }
 
   // `outra` está do lado d desta peça. Compara os 3 pontos do lado, não só o do meio,
-  // para que um erro no catálogo não passe despercebido.
-  conectaCom(outra: Tile, d: Direction): boolean {
+  // para que um erro no catálogo não passe despercebido. `rotacao` permite testar como
+  // a peça encaixaria em outra rotação sem girá-la (o Board testa as 4).
+  conectaCom(outra: Tile, d: Direction, rotacao = this.rotacao): boolean {
     return pontosDoLado(d).every(
-      (p) => this.getTerrenoNoPonto(p) === outra.getTerrenoNoPonto(pontoOposto(p)),
+      (p) => this.regiaoOriginalNoPonto(p, rotacao).tipo === outra.getTerrenoNoPonto(pontoOposto(p)),
     );
   }
 
@@ -87,8 +88,8 @@ export class Tile {
     return this.posicao !== null;
   }
 
-  private regiaoOriginalNoPonto(p: number): Regiao {
-    const original = desrotacionarPonto(p, this.rotacao);
+  private regiaoOriginalNoPonto(p: number, rotacao = this.rotacao): Regiao {
+    const original = desrotacionarPonto(p, rotacao);
     const regiao = this.definicao.regiaoNoPonto(original);
     if (!regiao) {
       throw new Error(`A definição ${this.definicao.id} não tem região no ponto ${original}.`);
