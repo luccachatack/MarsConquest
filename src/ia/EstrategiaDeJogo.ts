@@ -4,7 +4,8 @@ import type { EscolhaDeMarcador } from '../jogo/EstadoDaPartida';
 import type { Jogada } from '../jogo/Jogada';
 import { TipoDeJogador, type Jogador } from '../jogo/Jogador';
 import { donosDaMaioria, TipoDeMarcador } from '../jogo/Marcador';
-import { pontosDaConstrucao, pontosPrevistos } from '../jogo/Pontuacao';
+import { PONTOS_POR_HABITAT_FECHADO_NO_CAMPO, pontosDaConstrucao, pontosPrevistos } from '../jogo/Pontuacao';
+import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
 import type { FuncaoAleatoria } from '../jogo/TileDeck';
 
@@ -58,6 +59,12 @@ const CUSTO_DA_RESERVA_BAIXA = 2;
 // conta só por essa fração; o valor de aberta já é garantido na contagem final.
 const CHANCE_DE_FECHAR = 0.5;
 const PESO_DOS_PONTOS_DOS_OUTROS = 0.5;
+// Campo: o marcador fica preso até o fim. Os habitats fechados em volta já estão garantidos;
+// os abertos contam pela chance de ainda fechar.
+const CUSTO_DO_MARCADOR_NO_CAMPO: Record<TipoDeMarcador, number> = {
+  [TipoDeMarcador.COLONO]: 2.5,
+  [TipoDeMarcador.CHEFE]: 4,
+};
 
 // Difícil: avalia cada jogada com cada escolha de marcador e fica com a melhor.
 // Conta os pontos que ganha agora, desconta os que dá aos outros e aposta em
@@ -98,13 +105,17 @@ export class EstrategiaGulosa implements EstrategiaDeJogo {
       const donos = donosDaMaioria(meu ? [...c.marcadores, meu] : c.marcadores);
       const pontos = pontosPrevistos(c);
       const outros = donos.filter((d) => d !== eu).length;
+      const reservaBaixa = eu.totalDisponivel() <= 2 ? CUSTO_DA_RESERVA_BAIXA : 0;
 
-      if (c.bordasAbertas === 0) {
+      if (c.tipo === Terrain.SOIL) {
+        // Campo: nunca completa durante a partida; só vale a aposta de pôr o marcador.
+        const seFecharem = (c.habitatsEmVolta - c.habitatsFechadosEmVolta) * PONTOS_POR_HABITAT_FECHADO_NO_CAMPO;
+        if (meu) valor += pontos + CHANCE_DE_FECHAR * seFecharem - CUSTO_DO_MARCADOR_NO_CAMPO[meu.tipo] - reservaBaixa;
+      } else if (c.bordasAbertas === 0) {
         // Completa agora: o marcador volta na hora, então não tem custo.
         if (donos.includes(eu)) valor += pontos;
         valor -= PESO_DOS_PONTOS_DOS_OUTROS * pontos * outros;
       } else if (meu) {
-        const reservaBaixa = eu.totalDisponivel() <= 2 ? CUSTO_DA_RESERVA_BAIXA : 0;
         const seFechar = pontosDaConstrucao(c.tipo, c.quantidadeDeTiles, c.quantidadeDeCristais, 0);
         valor += pontos + CHANCE_DE_FECHAR * (seFechar - pontos) - CUSTO_DO_MARCADOR[meu.tipo] - reservaBaixa;
       } else if (donos.includes(eu)) {

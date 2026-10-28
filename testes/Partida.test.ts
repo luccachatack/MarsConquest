@@ -163,16 +163,16 @@ describe('Partida: turnos', () => {
 });
 
 describe('Partida: marcadores', () => {
-  it('só aceita marcador em habitat ou duto da peça do turno, em construção sem dono (RN04, RN14)', () => {
+  it('só aceita marcador numa região da peça do turno, em construção sem dono (RN04, RN14)', () => {
     const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, habitatNorte, habitatNorte));
     partida.colocarPeca(jogada(0, -1));
-    expect(partida.regioesParaMarcador()).toEqual(['h1']);
-    expect(() => partida.colocarMarcador(colono('s1'))).toThrow('Esta região não aceita marcador.');
+    expect(partida.regioesParaMarcador()).toEqual(['h1', 's1']);
+    expect(() => partida.colocarMarcador(colono('x9'))).toThrow('Esta região não aceita marcador.');
     partida.colocarMarcador(colono());
 
-    // Bia encosta um habitat no da Ana: a construção já tem dono, então não aceita outro.
+    // Bia encosta um habitat no da Ana: o habitat já tem dono, então só o solo dela aceita marcador.
     partida.colocarPeca(jogada(0, -2, 2));
-    expect(partida.regioesParaMarcador()).toEqual([]);
+    expect(partida.regioesParaMarcador()).toEqual(['s1']);
     expect(() => partida.colocarMarcador(colono())).toThrow();
   });
 
@@ -289,7 +289,7 @@ describe('Partida: estufa', () => {
     const partida = new Partida(jogadores('Ana', 'Bia'), baralho(soloPuro, estufaSo, ...volta.map(() => soloPuro)));
     const [ana, bia] = partida.getJogadores();
     partida.colocarPeca(jogada(1, 0));
-    expect(partida.regioesParaMarcador()).toEqual(['e1']);
+    expect(partida.regioesParaMarcador()).toEqual(['e1', 's1']);
     partida.colocarMarcador(colono('e1'));
 
     let ultimo = null;
@@ -383,7 +383,8 @@ describe('Partida simulada entre computadores', () => {
 
       const board = partida.getBoard();
       expect(board.quantidadeDeTiles() + partida.quantidadeDeDescartadas()).toBe(TOTAL_DE_PECAS);
-      expect(board.getFeatures().filter((f) => f.estaCompleta() && f.estaOcupada())).toEqual([]);
+      // Completa e ainda com marcador, só um campo: ele nunca devolve o marcador antes do fim.
+      expect(board.getFeatures().filter((f) => f.tipo !== SOIL && f.estaCompleta() && f.estaOcupada())).toEqual([]);
       const distribuidos = partida.getJogadores().reduce((soma, j) => soma + j.getPontos(), 0);
       expect(distribuidos).toBe(pontosDasConstrucoes);
       expect(distribuidos).toBeGreaterThan(0);

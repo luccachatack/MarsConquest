@@ -32,7 +32,7 @@ describe('Estratégias do computador', () => {
       expect(board.podeColocar(tile, jogada)).toBe(true);
       if (marcador) {
         marcou++;
-        expect(marcador.regiaoId).toBe('h1');
+        expect(['h1', 's1']).toContain(marcador.regiaoId);
       }
     }
     expect(marcou).toBeGreaterThan(0);

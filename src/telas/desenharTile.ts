@@ -69,6 +69,30 @@ export function ancoraDaRegiao(r: Regiao): Ponto {
   return interpolar(CENTRO, media, 0.55);
 }
 
+// Quanto a âncora de um campo entra a partir da borda, em fração do caminho até o centro.
+const ENTRADA_DO_CAMPO = 0.24;
+
+// Onde fica o marcador de cada região da peça (já girada). Habitat, duto e estufa usam
+// ancoraDaRegiao. O campo fica logo para dentro da borda, num dos pontos onde o solo toca
+// o lado da peça (ali o ponto está sempre dentro do campo), o mais longe das outras âncoras:
+// pela média, ele cairia em cima do habitat ou do duto da mesma peça.
+export function ancorasDasRegioes(regioes: readonly Regiao[]): Map<string, Ponto> {
+  const ancoras = new Map<string, Ponto>();
+  for (const r of regioes) {
+    if (r.tipo !== Terrain.SOIL) ancoras.set(r.id, ancoraDaRegiao(r));
+  }
+  for (const r of regioes.filter((r) => r.tipo === Terrain.SOIL)) {
+    const centro = ancoraDaRegiao(r);
+    const candidatos = r.pontos.map((p) => interpolar(posicaoDoPonto(p), CENTRO, ENTRADA_DO_CAMPO));
+    const longeDasOutras = (q: Ponto) => Math.min(...[...ancoras.values()].map((o) => Math.hypot(q[0] - o[0], q[1] - o[1])), 9);
+    // Desempate: mais perto do meio do campo.
+    const pertoDoMeio = (q: Ponto) => -Math.hypot(q[0] - centro[0], q[1] - centro[1]) * 1e-3;
+    candidatos.sort((a, b) => longeDasOutras(b) + pertoDoMeio(b) - (longeDasOutras(a) + pertoDoMeio(a)));
+    ancoras.set(r.id, candidatos[0]);
+  }
+  return ancoras;
+}
+
 function ladosDaRegiao(r: Regiao): Direction[] {
   return TODAS_DIRECOES.filter((d) => r.pontos.some((p) => ladoDoPonto(p) === d));
 }

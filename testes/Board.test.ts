@@ -288,9 +288,12 @@ describe('Board: construções (features)', () => {
     expect(habitat.quantidadeDeTiles()).toBe(2);
   });
 
-  it('solo não forma construção', () => {
+  it('solo forma um campo, que nunca é devolvido como completado', () => {
     const board = new Board(peca(soloPuro));
-    expect(board.getFeatures()).toEqual([]);
+    expect(board.colocar(peca(soloPuro), jogada(1, 0))).toEqual([]);
+    const campos = board.getFeatures(SOIL);
+    expect(campos).toHaveLength(1);
+    expect(campos[0].quantidadeDeTiles()).toBe(2);
   });
 });
 
@@ -381,7 +384,7 @@ describe('Board: previsão de jogada', () => {
     const meio = peca(ponte);
 
     expect(board.preverConclusoes(meio, jogada(1, -1, 1))).toEqual([
-      { tipo: HABITAT, quantidadeDeTiles: 3, quantidadeDeCristais: 1, bordasAbertas: 0, marcadores: [], regioesDaPeca: ['h1'] },
+      { tipo: HABITAT, quantidadeDeTiles: 3, quantidadeDeCristais: 1, bordasAbertas: 0, marcadores: [], regioesDaPeca: ['h1'], habitatsEmVolta: 0, habitatsFechadosEmVolta: 0 },
     ]);
     expect(meio.estaPosicionado()).toBe(false);
     expect(meio.getRotacao()).toBe(0);
@@ -403,7 +406,7 @@ describe('Board: previsão de jogada', () => {
     const board = new Board(peca(fimDeDuto));
     expect(board.preverConclusoes(peca(dutoReto), jogada(1, 0))).toEqual([]);
     // Mas a construção aberta aparece na previsão completa, com a borda que sobra.
-    expect(board.preverConstrucoes(peca(dutoReto), jogada(1, 0))).toMatchObject([
+    expect(board.preverConstrucoes(peca(dutoReto), jogada(1, 0)).filter((c) => c.tipo === PIPE)).toMatchObject([
       { tipo: PIPE, quantidadeDeTiles: 2, bordasAbertas: 1, regioesDaPeca: ['d1'] },
     ]);
     expect(() => board.preverConclusoes(peca(dutoReto), jogada(1, 0, 1))).toThrow();

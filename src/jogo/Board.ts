@@ -9,9 +9,14 @@ import { Terrain } from './Terrain';
 import { Tile } from './Tile';
 import { UnionFind } from './UnionFind';
 
-// Terrenos que formam construções ligando peças vizinhas. O solo ainda não pontua;
-// para incluí-lo, basta adicioná-lo aqui.
-const TIPOS_COM_FEATURE: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE]);
+// Terrenos que formam construções ligando peças vizinhas. O solo forma campos, que nunca
+// ficam completos durante a partida: só pontuam na contagem final.
+const TIPOS_COM_FEATURE: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE, Terrain.SOIL]);
+
+// Construções que pontuam na hora em que ficam completas (o campo, não).
+function pontuaAoCompletar(tipo: Terrain): boolean {
+  return tipo !== Terrain.SOIL;
+}
 
 // A estufa é uma construção de uma peça só. As "bordas abertas" dela são as casas vazias
 // entre as 8 em volta: cada peça colocada ao redor fecha uma, e cercada ela fica completa.
@@ -51,6 +56,9 @@ export interface ConstrucaoPrevista {
   readonly marcadores: readonly Marcador[];
   // Regiões da peça nova que fariam parte dela.
   readonly regioesDaPeca: readonly string[];
+  // Só nos campos: quantos habitats encostariam nele, e quantos deles já estariam fechados.
+  readonly habitatsEmVolta: number;
+  readonly habitatsFechadosEmVolta: number;
 }
 
 // Grupo da previsão: construções existentes e regiões da peça nova que a jogada juntaria.
@@ -61,6 +69,8 @@ interface GrupoPrevisto {
   cristais: Set<Tile>;
   marcadores: Marcador[];
   regioesDaPeca: string[];
+  // Campos já no tabuleiro que entram no grupo (para achar os habitats em volta deles).
+  campos: Feature[];
 }
 
 // Tabuleiro: guarda as peças colocadas e as construções que elas formam.
@@ -168,9 +178,24 @@ export class Board {
     return this.inserir(tile, jogada.position);
   }
 
-  // As construções que a jogada completaria, sem colocar a peça nem mudar nada.
+  // As construções que a jogada completaria e que pontuam na hora, sem colocar a peça nem mudar nada.
   preverConclusoes(tile: Tile, jogada: Jogada): ConstrucaoPrevista[] {
-    return this.preverConstrucoes(tile, jogada).filter((c) => c.bordasAbertas === 0);
+    return this.preverConstrucoes(tile, jogada).filter((c) => c.bordasAbertas === 0 && pontuaAoCompletar(c.tipo));
+  }
+
+  // Habitats distintos que encostam no campo, por qualquer uma das peças dele.
+  habitatsEmVolta(campo: Feature): Feature[] {
+    const habitats = new Set<Feature>();
+    for (const { tile, regiaoId } of campo.getPartes()) {
+      const regiao = tile.getDefinicao().regioes.find((r) => r.id === regiaoId)!;
+      regiao.habitatsAdjacentes.forEach((id) => habitats.add(this.featureDaChave(chaveDaParte(tile, id))));
+    }
+    return [...habitats];
+  }
+
+  // O que conta na contagem final do campo: os habitats em volta que já fecharam.
+  habitatsFechadosEmVolta(campo: Feature): number {
+    return this.habitatsEmVolta(campo).filter((h) => h.estaCompleta()).length;
   }
 
   // Como ficariam todas as construções da peça nova, completas ou não, sem mudar nada.
@@ -201,6 +226,7 @@ export class Board {
         cristais: new Set(regiao.cristal ? [tile] : []),
         marcadores: [],
         regioesDaPeca: [regiao.id],
+        campos: [],
       });
       for (const p of pontos) {
         const vizinha = this.getTile(jogada.position.vizinha(ladoDoPonto(p)));
@@ -215,6 +241,7 @@ export class Board {
           cristais: new Set(feature.getTilesComCristal()),
           marcadores: [...feature.getMarcadores()],
           regioesDaPeca: [],
+          campos: feature.tipo === Terrain.SOIL ? [feature] : [],
         });
         locais.unir(chave, raiz);
         ligacoes.push(chave);
@@ -233,6 +260,7 @@ export class Board {
           cristais: new Set(grupo.cristais),
           marcadores: [...grupo.marcadores],
           regioesDaPeca: [...grupo.regioesDaPeca],
+          campos: [...grupo.campos],
         });
         continue;
       }
@@ -241,6 +269,7 @@ export class Board {
       grupo.cristais.forEach((t) => soma.cristais.add(t));
       soma.marcadores.push(...grupo.marcadores);
       soma.regioesDaPeca.push(...grupo.regioesDaPeca);
+      soma.campos.push(...grupo.campos);
     }
     for (const chave of ligacoes) {
       somas.get(locais.encontrar(chave))!.bordasAbertas -= 2;
@@ -257,6 +286,7 @@ export class Board {
         cristais: new Set(),
         marcadores: [],
         regioesDaPeca: [estufaNova.id],
+        campos: [],
       });
     }
     for (const feature of this.estufasEmVolta(jogada.position)) {
@@ -267,17 +297,45 @@ export class Board {
         cristais: new Set(),
         marcadores: [...feature.getMarcadores()],
         regioesDaPeca: [],
+        campos: [],
       });
     }
 
-    return [...somas.values()].map((g) => ({
-      tipo: g.tipo,
-      quantidadeDeTiles: g.tiles.size,
-      quantidadeDeCristais: g.cristais.size,
-      bordasAbertas: g.bordasAbertas,
-      marcadores: g.marcadores,
-      regioesDaPeca: g.regioesDaPeca,
-    }));
+    // Habitats em volta de cada campo previsto, e quais deles estariam fechados. Um habitat
+    // que a jogada toca é identificado pelo grupo previsto dele (e fica aberto ou fechado
+    // conforme a previsão); os outros, pela construção que já existe.
+    const habitatsEmVolta = (g: GrupoPrevisto): { total: number; fechados: number } => {
+      const fechados = new Map<string, boolean>();
+      const anotar = (chave: string, fechado: boolean) => {
+        const raiz = locais.contem(chave) ? locais.encontrar(chave) : chave;
+        fechados.set(raiz, locais.contem(chave) ? somas.get(raiz)!.bordasAbertas === 0 : fechado);
+      };
+      for (const campo of g.campos) {
+        for (const h of this.habitatsEmVolta(campo)) {
+          const { tile: t, regiaoId } = h.getPartes()[0];
+          anotar(this.conjuntos.encontrar(chaveDaParte(t, regiaoId)), h.estaCompleta());
+        }
+      }
+      for (const regiaoId of g.regioesDaPeca) {
+        const regiao = tile.getDefinicao().regioes.find((r) => r.id === regiaoId)!;
+        regiao.habitatsAdjacentes.forEach((id) => anotar(`nova#${id}`, false));
+      }
+      return { total: fechados.size, fechados: [...fechados.values()].filter(Boolean).length };
+    };
+
+    return [...somas.values()].map((g) => {
+      const emVolta = g.tipo === Terrain.SOIL ? habitatsEmVolta(g) : { total: 0, fechados: 0 };
+      return {
+        tipo: g.tipo,
+        quantidadeDeTiles: g.tiles.size,
+        quantidadeDeCristais: g.cristais.size,
+        bordasAbertas: g.bordasAbertas,
+        marcadores: g.marcadores,
+        regioesDaPeca: g.regioesDaPeca,
+        habitatsEmVolta: emVolta.total,
+        habitatsFechadosEmVolta: emVolta.fechados,
+      };
+    });
   }
 
   getFeatureDe(tile: Tile, regiaoId: string): Feature | undefined {
@@ -332,7 +390,7 @@ export class Board {
         tocadas.add(this.featureDaChave(chaveDaParte(tile, regiao.id)));
       }
     }
-    return [...tocadas].filter((f) => f.estaCompleta());
+    return [...tocadas].filter((f) => f.estaCompleta() && pontuaAoCompletar(f.tipo));
   }
 
   private casasVaziasEmVolta(position: Position): number {

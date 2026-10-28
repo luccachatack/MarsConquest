@@ -27,14 +27,14 @@ const PASSOS_DO_TURNO = [
   'Compre a peça do topo do baralho.',
   'Gire a peça e coloque-a encostada em pelo menos uma peça da mesa. Se a jogada não valer, tente de novo: você não perde a vez.',
   'Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto e solo com solo.',
-  'Se quiser, ponha um colono ou o chefe num habitat, duto ou estufa da peça.',
+  'Se quiser, ponha um colono ou o chefe num habitat, duto, estufa ou campo da peça.',
   'Se a peça não couber em lugar nenhum, ela é descartada e vem outra.',
 ];
 
 const COLONOS_E_CHEFE =
   'Cada jogador tem 6 colonos e 1 chefe. Só dá para marcar uma construção que ainda não tem ninguém. ' +
   'Quando ela fica completa, quem tem mais força nela (colono 1, chefe 2) ganha os pontos, mesmo que outro jogador a tenha fechado; ' +
-  'no empate, todos ganham. Os marcadores voltam na hora para a reserva. Construção completa sem marcador não dá pontos.';
+  'no empate, todos ganham. Os marcadores voltam na hora para a reserva (do campo, só no fim). Construção completa sem marcador não dá pontos.';
 
 const FIM_DA_PARTIDA =
   'Quando o baralho acaba, cada construção aberta com marcador pontua para a maioria, e esses marcadores ficam no tabuleiro. ' +
@@ -50,7 +50,7 @@ const PONTUACAO: [string | null, string, string, string][] = [
   ['habitat-canto-cristal', 'Habitat', '1 por peça · 2 com cristal', 'Fechado (sem lado aberto), vale o dobro e pontua na hora; aberto, pontua na contagem final.'],
   ['duto-curva', 'Duto', '1 por peça', 'Completo (pontas numa estufa, bomba ou habitat, ou em circuito), pontua na hora; incompleto, na contagem final.'],
   ['estufa-duto', 'Estufa', '1 + 1 por peça em volta', 'Conta as 8 casas em volta. Cercada, pontua na hora (9); senão, na contagem final.'],
-  [null, 'Solo', '0', 'Não aceita marcador e não pontua.'],
+  [null, 'Campo', '2 por habitat fechado em volta', 'O solo ligado entre peças forma um campo, com o colono deitado. Só pontua no fim: 2 por habitat fechado que encosta nele.'],
 ];
 
 // Ícones desenhados com linhas; (x, y) é o centro.
@@ -238,5 +238,7 @@ export class CenaRegras extends Phaser.Scene {
       desenharPecaIlustrativa(this, SO_SOLO, 0, x, y, tamanho);
     }
     this.add.graphics().lineStyle(1, 0x000000, 0.5).strokeRect(x, y, tamanho, tamanho);
+    // No campo, o colono deitado.
+    if (!peca) desenharMarcador(this.add.graphics(), TipoDeMarcador.COLONO, CORES_DOS_JOGADORES[0], x + tamanho / 2 + 6, y + tamanho / 2, 120, 'cabeca-a-esquerda');
   }
 }

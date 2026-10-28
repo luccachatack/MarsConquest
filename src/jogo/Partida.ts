@@ -43,7 +43,7 @@ export interface Colocacao {
   readonly posicao: number;
 }
 
-const TIPOS_COM_MARCADOR: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE, Terrain.GREENHOUSE]);
+const TIPOS_COM_MARCADOR: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE, Terrain.GREENHOUSE, Terrain.SOIL]);
 
 // Uma partida (o Game do plano): jogadores em turnos. Cada turno tem duas etapas,
 // colocar a peça e depois, se quiser, um marcador nela; os estados controlam a ordem.
@@ -136,8 +136,8 @@ export class Partida {
     this.estado.colocarPeca(this.operacoes, jogada);
   }
 
-  // Regiões da peça recém-colocada que aceitam marcador: habitat, duto ou estufa cuja construção
-  // ainda não tem marcador (RN04, RN14). Vazia se o jogador não tem marcadores (RN05).
+  // Regiões da peça recém-colocada que aceitam marcador: habitat, duto, estufa ou campo cuja
+  // construção ainda não tem marcador (RN04, RN14). Vazia se o jogador não tem marcadores (RN05).
   regioesParaMarcador(): string[] {
     const tile = this.atual;
     if (!tile || !tile.estaPosicionado() || this.getJogadorDaVez().totalDisponivel() === 0) {
@@ -214,18 +214,24 @@ export class Partida {
   }
 
   // Fim da partida: cada construção aberta com marcador vale para quem tem a maioria
-  // (habitat aberto: 1 por peça, 2 com cristal; duto: 1 por peça). Os marcadores ficam
-  // no tabuleiro, então o desempate conta a reserva de antes da contagem final.
+  // (habitat aberto: 1 por peça, 2 com cristal; duto: 1 por peça; campo: 2 por habitat
+  // fechado em volta). Os marcadores ficam no tabuleiro, então o desempate conta a reserva
+  // de antes da contagem final.
   private executarContagemFinal(): ConstrucaoPontuada[] {
     return this.board
       .getFeatures()
       .filter((f) => f.estaOcupada())
       .map((feature) => {
-        const pontos = pontosDaFeature(feature);
+        const pontos = this.pontosNaContagemFinal(feature);
         const donos = feature.donos();
         donos.forEach((d) => d.adicionarPontos(pontos));
         return { feature, pontos, donos, devolvidos: [] };
       });
+  }
+
+  // Pontos de uma construção aberta no fim; o campo conta os habitats fechados em volta.
+  pontosNaContagemFinal(feature: Feature): number {
+    return pontosDaFeature(feature, feature.tipo === Terrain.SOIL ? this.board.habitatsFechadosEmVolta(feature) : 0);
   }
 
   // Compra até achar uma peça que cabe; as que não cabem são descartadas (RN13).

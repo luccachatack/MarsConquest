@@ -7,6 +7,7 @@ import { Jogada } from '../jogo/Jogada';
 import { Jogador } from '../jogo/Jogador';
 import { TipoDeMarcador, type Marcador } from '../jogo/Marcador';
 import { Partida, type Colocacao, type ConstrucaoPontuada, type ResultadoDoTurno } from '../jogo/Partida';
+import { PONTOS_POR_HABITAT_FECHADO_NO_CAMPO } from '../jogo/Pontuacao';
 import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
@@ -15,7 +16,7 @@ import type { CenaPainelTabuleiro } from './CenaPainelTabuleiro';
 import type { DadosDaPartida } from './CenaPreparacao';
 import { desenharMarcador } from './desenharMarcador';
 import { criarPeca, desenharPeca } from './desenharPeca';
-import { ancoraDaRegiao } from './desenharTile';
+import { ancorasDasRegioes } from './desenharTile';
 import { CENAS, corCss, estilo, nomeDaPeca, tracejarRetangulo } from './ui';
 
 export const TAMANHO_PECA = 96;
@@ -58,6 +59,8 @@ interface OpcaoDeMarcador {
   readonly regiaoId: string;
   readonly x: number;
   readonly y: number;
+  // No solo, o marcador fica deitado, com a cabeça para dentro da peça.
+  readonly deitado?: 'cabeca-a-esquerda' | 'cabeca-a-direita';
 }
 
 // A primeira rotação da lista a partir de "inicio", girando no sentido horário.
@@ -69,9 +72,16 @@ function proximaRotacao(rotacoes: readonly number[], inicio: number): number {
   throw new Error('A peça não encaixa nesta posição.');
 }
 
-// Com o artigo: "num habitat", "num duto", "numa estufa".
+// No campo, o colono deita com a cabeça para o lado do centro da peça (u é a posição na peça, de 0 a 1).
+function poseNoCampo(tipo: Terrain, u: number): 'cabeca-a-esquerda' | 'cabeca-a-direita' | undefined {
+  if (tipo !== Terrain.SOIL) return undefined;
+  return u < 0.5 ? 'cabeca-a-direita' : 'cabeca-a-esquerda';
+}
+
+// Com o artigo: "num habitat", "num duto", "numa estufa", "deitado num campo".
 function numTerreno(tipo: Terrain): string {
   if (tipo === Terrain.GREENHOUSE) return 'numa estufa';
+  if (tipo === Terrain.SOIL) return 'deitado num campo';
   return tipo === Terrain.HABITAT ? 'num habitat' : 'num duto';
 }
 
@@ -86,8 +96,11 @@ function descreverPontuacao({ feature, pontos, donos }: ConstrucaoPontuada): str
   const cristais = feature.quantidadeDeCristais();
   const completa = feature.estaCompleta();
   const emVolta = CASAS_EM_VOLTA - feature.getBordasAbertas();
+  const habitatsFechados = pontos / PONTOS_POR_HABITAT_FECHADO_NO_CAMPO;
   const oQue =
-    feature.tipo === Terrain.HABITAT
+    feature.tipo === Terrain.SOIL
+      ? `Campo com ${habitatsFechados} habitat${habitatsFechados === 1 ? '' : 's'} fechado${habitatsFechados === 1 ? '' : 's'} em volta`
+      : feature.tipo === Terrain.HABITAT
       ? `Habitat de ${pecas} peças${cristais ? ` (${cristais} com cristal)` : ''} ${completa ? 'fechado' : 'aberto'}`
       : feature.tipo === Terrain.GREENHOUSE
         ? completa
@@ -213,12 +226,18 @@ export class CenaTabuleiro extends Phaser.Scene {
       return;
     }
     const posicaoDaPeca = atual.getPosicao()!;
+    const ancoras = ancorasDasRegioes(atual.getRegioes());
     this.opcoes = atual
       .getRegioes()
       .filter((r) => regioes.includes(r.id))
       .map((r) => {
-        const [u, v] = ancoraDaRegiao(r);
-        return { regiaoId: r.id, x: (posicaoDaPeca.x + u) * TAMANHO_PECA, y: (posicaoDaPeca.y + v) * TAMANHO_PECA };
+        const [u, v] = ancoras.get(r.id)!;
+        return {
+          regiaoId: r.id,
+          x: (posicaoDaPeca.x + u) * TAMANHO_PECA,
+          y: (posicaoDaPeca.y + v) * TAMANHO_PECA,
+          deitado: poseNoCampo(r.tipo, u),
+        };
       });
     this.atualizar();
   }
@@ -365,8 +384,11 @@ export class CenaTabuleiro extends Phaser.Scene {
     return querChefe || jogador.disponiveis(TipoDeMarcador.COLONO) === 0 ? TipoDeMarcador.CHEFE : TipoDeMarcador.COLONO;
   }
 
+  // A opção mais próxima do clique, se ele caiu dentro de algum círculo.
   private opcaoEm(x: number, y: number): OpcaoDeMarcador | undefined {
-    return this.opcoes.find((o) => Phaser.Math.Distance.Between(x, y, o.x, o.y) <= RAIO_DA_OPCAO);
+    const distancia = (o: OpcaoDeMarcador) => Phaser.Math.Distance.Between(x, y, o.x, o.y);
+    const perto = this.opcoes.filter((o) => distancia(o) <= RAIO_DA_OPCAO);
+    return perto.sort((a, b) => distancia(a) - distancia(b))[0];
   }
 
   // Mostra o marcador colocado, pontua o que foi completado e passa para o próximo turno.
@@ -387,6 +409,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.registrarDescartes(resultado.descartadas.length);
     if (resultado.contagemFinal.length > 0) {
       const total = resultado.contagemFinal.reduce((soma, c) => soma + c.pontos * c.donos.length, 0);
+      resultado.contagemFinal.forEach((c) => this.registrar(`Contagem final · ${descreverPontuacao(c)}`));
       this.registrar(`Contagem final das construções abertas: ${total} pontos distribuídos.`);
       resultado.contagemFinal.forEach((c) => this.mostrarPontos(c));
     }
@@ -399,10 +422,10 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   private desenharMarcadorNoTabuleiro(m: Marcador): void {
     const regiao = m.tile.getRegioes().find((r) => r.id === m.regiaoId)!;
-    const [u, v] = ancoraDaRegiao(regiao);
+    const [u, v] = ancorasDasRegioes(m.tile.getRegioes()).get(regiao.id)!;
     const p = m.tile.getPosicao()!;
     const g = this.add.graphics().setDepth(5);
-    desenharMarcador(g, m.tipo, m.dono.cor, (p.x + u) * TAMANHO_PECA, (p.y + v) * TAMANHO_PECA, TAMANHO_PECA);
+    desenharMarcador(g, m.tipo, m.dono.cor, (p.x + u) * TAMANHO_PECA, (p.y + v) * TAMANHO_PECA, TAMANHO_PECA, poseNoCampo(regiao.tipo, u));
     this.desenhosDosMarcadores.set(m, g);
   }
 
@@ -464,8 +487,8 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.desenharPosicoesSemEncaixe();
     const cor = this.partida.estaEncerrada() ? 0xffffff : this.partida.getJogadorDaVez().cor;
     for (const o of this.opcoes) {
-      this.camadaDeOpcoes.fillStyle(cor, 0.3).fillCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
-      this.camadaDeOpcoes.lineStyle(3, cor, 1).strokeCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
+      this.camadaDeOpcoes.fillStyle(cor, 0.3).fillCircle(o.x, o.y, RAIO_DA_OPCAO - 4);
+      this.camadaDeOpcoes.lineStyle(3, cor, 1).strokeCircle(o.x, o.y, RAIO_DA_OPCAO - 4);
     }
     this.emitirEstado();
   }
@@ -609,7 +632,7 @@ export class CenaTabuleiro extends Phaser.Scene {
       if (!opcao) return;
       const cor = this.partida.getJogadorDaVez().cor;
       const g = this.add.graphics();
-      desenharMarcador(g, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA);
+      desenharMarcador(g, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA, opcao.deitado);
       this.fantasma.add(g);
       return;
     }
