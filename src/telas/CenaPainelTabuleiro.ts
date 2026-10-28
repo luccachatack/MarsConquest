@@ -148,6 +148,11 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
   private quantidadeDeEventos = -1;
   private eventosNoLog = 0;
 
+  // Botão de mostrar os campos (abaixo do ≡) e a legenda que aparece ao lado quando ligado.
+  private pintarBotaoDosCampos: (sobre: boolean) => void = () => undefined;
+  private legendaDosCampos!: Phaser.GameObjects.Container;
+  private mostrandoCampos = false;
+
   private pontoDaVez!: Phaser.GameObjects.Graphics;
   private tituloDaVez!: Phaser.GameObjects.Text;
   private previa!: Phaser.GameObjects.Container;
@@ -185,6 +190,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     this.chaveDoBaralho = '';
     this.zonaDosEventos = null;
     this.quantidadeDeEventos = -1;
+    this.mostrandoCampos = false;
 
     this.criarBotoesDoTopo();
     for (let i = 0; i < MAX_JOGADORES; i++) {
@@ -246,10 +252,52 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
       g.lineBetween(cx - 12, cy, cx - 8, cy).lineBetween(cx + 8, cy, cx + 12, cy);
       g.fillStyle(0xf6ead8, 1).fillCircle(cx, cy, 1.8);
     }, () => this.tabuleiro.centralizar());
+    this.criarBotaoDosCampos();
+  }
+
+  // Liga e desliga a pintura dos campos (tecla V). Aceso enquanto os campos estão à mostra.
+  private criarBotaoDosCampos(): void {
+    const [x, y, lado] = [20, 80, LADO_DO_BOTAO_DO_TOPO];
+    const g = this.add.graphics();
+    this.pintarBotaoDosCampos = (sobre: boolean) => {
+      const ligado = this.mostrandoCampos;
+      g.clear().fillStyle(0x000000, 0.3).fillRoundedRect(x + 1, y + 4, lado, lado, 10);
+      g.fillStyle(ligado ? 0x6e3d27 : sobre ? 0x3a2a22 : COR_ESCURA, 0.95).fillRoundedRect(x, y, lado, lado, 10);
+      g.lineStyle(1.2, ligado ? 0xe8834f : 0xc98a63, ligado || sobre ? 0.95 : 0.4).strokeRoundedRect(x, y, lado, lado, 10);
+      // Ícone: duas camadas de mapa, a de cima pintada quando ligado.
+      const [cx, cy] = [x + lado / 2, y + lado / 2];
+      const losango = (dy: number) => [
+        new Phaser.Math.Vector2(cx, cy - 7 + dy), new Phaser.Math.Vector2(cx + 12, cy + dy),
+        new Phaser.Math.Vector2(cx, cy + 7 + dy), new Phaser.Math.Vector2(cx - 12, cy + dy),
+      ];
+      g.lineStyle(2, 0xf6ead8, 1).strokePoints(losango(5), true);
+      if (ligado) g.fillStyle(0xe8834f, 1).fillPoints(losango(-3), true);
+      g.lineStyle(2, 0xf6ead8, 1).strokePoints(losango(-3), true);
+    };
+    this.pintarBotaoDosCampos(false);
+    this.add
+      .zone(x, y, lado, lado)
+      .setOrigin(0)
+      .setInteractive({ useHandCursor: true })
+      .on('pointerover', () => this.pintarBotaoDosCampos(true))
+      .on('pointerout', () => this.pintarBotaoDosCampos(false))
+      .on('pointerup', () => this.tabuleiro.alternarCampos());
+    this.areas.set('campos', { x, y, l: lado, a: lado });
+
+    const texto = this.add
+      .text(x + lado + 22, y + lado / 2, 'Campos na cor de quem domina · listras: empate · claro: sem dono  (V)', estilo(12, CREME, true))
+      .setOrigin(0, 0.5);
+    const fundo = this.painel(x + lado + 10, y + 8, texto.width + 24, lado - 16);
+    this.legendaDosCampos = this.add.container(0, 0, [fundo, texto]).setVisible(false);
   }
 
   private atualizar(estado: EstadoDoTabuleiro): void {
     this.estado = estado;
+    if (estado.mostrandoCampos !== this.mostrandoCampos) {
+      this.mostrandoCampos = estado.mostrandoCampos;
+      this.pintarBotaoDosCampos(false);
+      this.legendaDosCampos.setVisible(this.mostrandoCampos);
+    }
     this.atualizarPlacar(estado);
     this.atualizarBaralho(estado);
     this.atualizarEventos(estado);

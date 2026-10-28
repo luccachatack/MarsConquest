@@ -55,7 +55,7 @@ function girar90(p: Ponto): Ponto {
 }
 
 // Posição de um ponto de borda: os 3 pontos dividem o lado em terços, em sentido horário.
-function posicaoDoPonto(p: number): Ponto {
+export function posicaoDoPonto(p: number): Ponto {
   const [a, b] = CANTOS[ladoDoPonto(p)];
   return interpolar(a, b, ((p % 3) + 0.5) / 3);
 }

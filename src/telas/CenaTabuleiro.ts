@@ -12,10 +12,11 @@ import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
 import { TileFactory } from '../jogo/TileFactory';
+import { faixasDoSolo, RESOLUCAO_DOS_CAMPOS } from './areasDosCampos';
 import type { CenaPainelTabuleiro } from './CenaPainelTabuleiro';
 import type { DadosDaPartida } from './CenaPreparacao';
 import { desenharMarcador } from './desenharMarcador';
-import { criarPeca, desenharPeca } from './desenharPeca';
+import { ARTE_DAS_PECAS, criarPeca, desenharPeca } from './desenharPeca';
 import { ancorasDasRegioes } from './desenharTile';
 import { CENAS, corCss, estilo, nomeDaPeca, tracejarRetangulo } from './ui';
 
@@ -49,6 +50,8 @@ export interface EstadoDoTabuleiro {
   // Na etapa do marcador: quantas regiões da peça aceitam marcador e se o chefe está escolhido.
   readonly regioesParaMarcador: number;
   readonly usarChefe: boolean;
+  // Os campos estão pintados com a cor de quem domina cada um.
+  readonly mostrandoCampos: boolean;
   // Tudo o que aconteceu na partida, do mais antigo ao mais novo.
   readonly eventos: readonly string[];
   // Preenchida só no fim da partida.
@@ -126,6 +129,8 @@ export class CenaTabuleiro extends Phaser.Scene {
   private cruzes!: Phaser.GameObjects.Graphics;
   private fantasma!: Phaser.GameObjects.Container;
   private escolha!: Phaser.GameObjects.Container;
+  private camadaDosCampos!: Phaser.GameObjects.Graphics;
+  private mostrandoCampos = false;
   private ultima!: Phaser.GameObjects.Graphics;
   private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
   private inicioDoToque: { x: number; y: number } | null = null;
@@ -152,6 +157,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.posicaoSobMouse = null;
     this.escolhida = null;
     this.semEncaixe = new Set();
+    this.mostrandoCampos = false;
 
     // O tabuleiro ocupa a tela toda; os painéis (CenaPainelTabuleiro) ficam por cima.
     this.cameras.main.setBackgroundColor(COR_FUNDO);
@@ -165,6 +171,8 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.cruzes = this.add.graphics().setDepth(1);
     this.fantasma = this.add.container(0, 0).setAlpha(0.6).setDepth(2);
     this.escolha = this.add.container(0, 0).setDepth(2);
+    // Acima das peças e dos destaques, abaixo da prévia e dos marcadores.
+    this.camadaDosCampos = this.add.graphics().setDepth(1.5);
     this.ultima = this.add.graphics().setDepth(3);
     this.camadaDeOpcoes = this.add.graphics().setDepth(4);
     this.tweens.add({ targets: this.camadaDeOpcoes, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
@@ -192,6 +200,13 @@ export class CenaTabuleiro extends Phaser.Scene {
     }
     if (this.escolhida) this.desenharEscolha();
     else this.desenharFantasmaDaPeca();
+    this.emitirEstado();
+  }
+
+  // Liga ou desliga a pintura dos campos com a cor de quem domina cada um.
+  alternarCampos(): void {
+    this.mostrandoCampos = !this.mostrandoCampos;
+    this.desenharCampos();
     this.emitirEstado();
   }
 
@@ -286,6 +301,7 @@ export class CenaTabuleiro extends Phaser.Scene {
       pecaEscolhida: this.escolhida !== null,
       regioesParaMarcador: this.opcoes.length,
       usarChefe: this.usarChefe,
+      mostrandoCampos: this.mostrandoCampos,
       eventos: this.eventos,
       classificacao: encerrada ? this.partida.classificacao() : null,
     };
@@ -479,12 +495,57 @@ export class CenaTabuleiro extends Phaser.Scene {
       }
     }
     this.desenharPosicoesSemEncaixe();
+    this.desenharCampos();
     const cor = this.partida.estaEncerrada() ? 0xffffff : this.partida.getJogadorDaVez().cor;
     for (const o of this.opcoes) {
       this.camadaDeOpcoes.fillStyle(cor, 0.3).fillCircle(o.x, o.y, RAIO_DA_OPCAO - 4);
       this.camadaDeOpcoes.lineStyle(3, cor, 1).strokeCircle(o.x, o.y, RAIO_DA_OPCAO - 4);
     }
     this.emitirEstado();
+  }
+
+  // Cada campo pintado na cor de quem tem a maioria nele agora; no empate, listras com as cores
+  // empatadas; sem marcador, um branco bem claro. A área vem da arte (areasDosCampos).
+  private desenharCampos(): void {
+    const g = this.camadaDosCampos.clear();
+    if (!this.mostrandoCampos) return;
+    const R = RESOLUCAO_DOS_CAMPOS;
+    const celula = TAMANHO_PECA / R;
+    for (const campo of this.partida.getBoard().getFeatures(Terrain.SOIL)) {
+      const cores = campo.donos().map((j) => j.cor);
+      for (const { tile, regiaoId } of campo.getPartes()) {
+        const faixas = faixasDoSolo(this, tile.getDefinicao())?.get(regiaoId);
+        if (!faixas) continue;
+        const p = tile.getPosicao()!;
+        const voltas = (ARTE_DAS_PECAS[tile.getDefinicao().id].giro + tile.getRotacao()) % 4;
+        // Célula (coluna, linha) da arte -> célula na tela, girando como a imagem da peça.
+        const girar = (c: number, l: number): [number, number] => {
+          for (let i = 0; i < voltas; i++) [c, l] = [R - 1 - l, c];
+          return [c, l];
+        };
+        const pintar = (c: number, l: number, largura: number, altura: number, cor: number, alfa: number) =>
+          g.fillStyle(cor, alfa).fillRect(p.x * TAMANHO_PECA + c * celula, p.y * TAMANHO_PECA + l * celula, largura * celula, altura * celula);
+        for (const { linha, inicio, fim } of faixas) {
+          if (cores.length === 1) {
+            // A faixa inteira de uma vez: girada, vira uma faixa vertical ou horizontal.
+            const [c0, l0] = girar(inicio, linha);
+            const [c1, l1] = girar(fim, linha);
+            pintar(Math.min(c0, c1), Math.min(l0, l1), Math.abs(c1 - c0) + 1, Math.abs(l1 - l0) + 1, cores[0], 0.5);
+            continue;
+          }
+          for (let coluna = inicio; coluna <= fim; coluna++) {
+            const [c, l] = girar(coluna, linha);
+            if (cores.length === 0) {
+              pintar(c, l, 1, 1, 0xffffff, 0.14);
+            } else {
+              // Listras diagonais contínuas de uma peça para a outra.
+              const faixa = Math.floor((p.x * R + c + p.y * R + l) / 5);
+              pintar(c, l, 1, 1, cores[faixa % cores.length], 0.55);
+            }
+          }
+        }
+      }
+    }
   }
 
   // X vermelho onde nenhuma peça que resta encaixa: o que encosta ali nunca será completado.
@@ -600,6 +661,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     tecla('ENTER', () => this.confirmar());
     tecla('BACKSPACE', () => this.voltar());
     tecla('C', () => this.centralizar());
+    tecla('V', () => this.alternarCampos());
   }
 
   // Prévia sob o ponteiro, só na vez de um humano: a peça onde ela encaixa,
