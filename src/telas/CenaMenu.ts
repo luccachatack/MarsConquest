@@ -5,8 +5,6 @@ const LARGURA = 1280;
 const ALTURA = 720;
 
 export class CenaMenu extends Phaser.Scene {
-  private aviso!: Phaser.GameObjects.Text;
-
   constructor() {
     super(CENAS.menu);
   }
@@ -24,25 +22,14 @@ export class CenaMenu extends Phaser.Scene {
     const largura = 300;
     const x = (LARGURA - largura) / 2;
     const opcoes: [string, () => void][] = [
-      ['Jogar', () => this.mostrarAviso()],
+      ['Jogar', () => this.scene.start(CENAS.tabuleiro)],
       ['Peças', () => this.scene.start(CENAS.pecas)],
       ['Regras', () => this.scene.start(CENAS.regras)],
       ['Créditos', () => this.scene.start(CENAS.creditos)],
     ];
     opcoes.forEach(([texto, acao], i) => criarBotao(this, x, 270 + i * 72, largura, 56, texto, acao, 20));
 
-    this.aviso = this.add
-      .text(LARGURA / 2, 568, 'O modo de jogo ainda está em construção.', estilo(15, COR_TITULO))
-      .setOrigin(0.5)
-      .setAlpha(0);
-
     this.add.text(LARGURA - 24, ALTURA - 20, 'v0.1.0 · Projeto de Software', estilo(12, COR_TEXTO_FRACO)).setOrigin(1, 1);
-  }
-
-  private mostrarAviso(): void {
-    this.tweens.killTweensOf(this.aviso);
-    this.aviso.setAlpha(1);
-    this.tweens.add({ targets: this.aviso, alpha: 0, delay: 1800, duration: 600 });
   }
 
   // Estrelas em posições fixas (gerador com semente), para o fundo não mudar a cada visita.

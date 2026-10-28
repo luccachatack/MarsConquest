@@ -11,6 +11,8 @@ export const CENAS = {
   pecas: 'pecas',
   regras: 'regras',
   creditos: 'creditos',
+  tabuleiro: 'tabuleiro',
+  painelTabuleiro: 'painel-tabuleiro',
 } as const;
 
 export const FONTE = 'system-ui, "Segoe UI", sans-serif';

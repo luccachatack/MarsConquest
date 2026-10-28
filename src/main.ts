@@ -3,7 +3,9 @@ import Phaser from 'phaser';
 import { CenaCatalogo } from './telas/CenaCatalogo';
 import { CenaCreditos } from './telas/CenaCreditos';
 import { CenaMenu } from './telas/CenaMenu';
+import { CenaPainelTabuleiro } from './telas/CenaPainelTabuleiro';
 import { CenaRegras } from './telas/CenaRegras';
+import { CenaTabuleiro } from './telas/CenaTabuleiro';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -16,5 +18,5 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // A primeira cena da lista é a que abre.
-  scene: [CenaMenu, CenaCatalogo, CenaRegras, CenaCreditos],
+  scene: [CenaMenu, CenaTabuleiro, CenaPainelTabuleiro, CenaCatalogo, CenaRegras, CenaCreditos],
 });
