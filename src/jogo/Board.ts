@@ -1,6 +1,7 @@
 import { Direction, TODAS_DIRECOES } from './Direction';
 import { Feature } from './Feature';
 import { Jogada } from './Jogada';
+import type { Marcador } from './Marcador';
 import { ladoDoPonto, pontoOposto, rotacionarPonto } from './PontosDeBorda';
 import { Position } from './Position';
 import { Terrain } from './Terrain';
@@ -22,11 +23,16 @@ function chaveDaParte(tile: Tile, regiaoId: string): string {
   return `${tile.id}#${regiaoId}`;
 }
 
-// O que uma construção teria se a jogada fosse feita: o suficiente para pontuar.
+// Como ficaria uma construção tocada pela jogada: o suficiente para pontuar e decidir marcadores.
 export interface ConstrucaoPrevista {
   readonly tipo: Terrain;
   readonly quantidadeDeTiles: number;
   readonly quantidadeDeCristais: number;
+  readonly bordasAbertas: number;
+  // Marcadores que já estão nas construções que se juntariam.
+  readonly marcadores: readonly Marcador[];
+  // Regiões da peça nova que fariam parte dela.
+  readonly regioesDaPeca: readonly string[];
 }
 
 // Grupo da previsão: construções existentes e regiões da peça nova que a jogada juntaria.
@@ -35,6 +41,8 @@ interface GrupoPrevisto {
   bordasAbertas: number;
   tiles: Set<Tile>;
   cristais: Set<Tile>;
+  marcadores: Marcador[];
+  regioesDaPeca: string[];
 }
 
 // Tabuleiro: guarda as peças colocadas e as construções que elas formam.
@@ -132,8 +140,13 @@ export class Board {
   }
 
   // As construções que a jogada completaria, sem colocar a peça nem mudar nada.
-  // Faz a mesma conta de colocar: cada ligação fecha 2 bordas, e construções ligadas se juntam.
   preverConclusoes(tile: Tile, jogada: Jogada): ConstrucaoPrevista[] {
+    return this.preverConstrucoes(tile, jogada).filter((c) => c.bordasAbertas === 0);
+  }
+
+  // Como ficariam todas as construções da peça nova, completas ou não, sem mudar nada.
+  // Faz a mesma conta de colocar: cada ligação fecha 2 bordas, e construções ligadas se juntam.
+  preverConstrucoes(tile: Tile, jogada: Jogada): ConstrucaoPrevista[] {
     const erro = this.validarJogada(tile, jogada);
     if (erro) {
       throw new Error(erro);
@@ -157,6 +170,8 @@ export class Board {
         bordasAbertas: pontos.length,
         tiles: new Set([tile]),
         cristais: new Set(regiao.cristal ? [tile] : []),
+        marcadores: [],
+        regioesDaPeca: [regiao.id],
       });
       for (const p of pontos) {
         const vizinha = this.getTile(jogada.position.vizinha(ladoDoPonto(p)));
@@ -169,6 +184,8 @@ export class Board {
           bordasAbertas: feature.getBordasAbertas(),
           tiles: new Set(feature.getTiles()),
           cristais: new Set(feature.getTilesComCristal()),
+          marcadores: [...feature.getMarcadores()],
+          regioesDaPeca: [],
         });
         locais.unir(chave, raiz);
         ligacoes.push(chave);
@@ -181,20 +198,33 @@ export class Board {
       const raiz = locais.encontrar(chave);
       const soma = somas.get(raiz);
       if (!soma) {
-        somas.set(raiz, { ...grupo, tiles: new Set(grupo.tiles), cristais: new Set(grupo.cristais) });
+        somas.set(raiz, {
+          ...grupo,
+          tiles: new Set(grupo.tiles),
+          cristais: new Set(grupo.cristais),
+          marcadores: [...grupo.marcadores],
+          regioesDaPeca: [...grupo.regioesDaPeca],
+        });
         continue;
       }
       soma.bordasAbertas += grupo.bordasAbertas;
       grupo.tiles.forEach((t) => soma.tiles.add(t));
       grupo.cristais.forEach((t) => soma.cristais.add(t));
+      soma.marcadores.push(...grupo.marcadores);
+      soma.regioesDaPeca.push(...grupo.regioesDaPeca);
     }
     for (const chave of ligacoes) {
       somas.get(locais.encontrar(chave))!.bordasAbertas -= 2;
     }
 
-    return [...somas.values()]
-      .filter((g) => g.bordasAbertas === 0)
-      .map((g) => ({ tipo: g.tipo, quantidadeDeTiles: g.tiles.size, quantidadeDeCristais: g.cristais.size }));
+    return [...somas.values()].map((g) => ({
+      tipo: g.tipo,
+      quantidadeDeTiles: g.tiles.size,
+      quantidadeDeCristais: g.cristais.size,
+      bordasAbertas: g.bordasAbertas,
+      marcadores: g.marcadores,
+      regioesDaPeca: g.regioesDaPeca,
+    }));
   }
 
   getFeatureDe(tile: Tile, regiaoId: string): Feature | undefined {

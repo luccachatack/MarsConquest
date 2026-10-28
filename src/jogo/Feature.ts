@@ -1,3 +1,5 @@
+import type { Jogador } from './Jogador';
+import { donosDaMaioria, type Marcador } from './Marcador';
 import type { Terrain } from './Terrain';
 import type { Tile } from './Tile';
 
@@ -12,6 +14,7 @@ export interface ParteDeFeature {
 export class Feature {
   readonly tipo: Terrain;
   private readonly partes: ParteDeFeature[];
+  private readonly marcadores: Marcador[] = [];
   // Pontos de borda das partes que ainda não encostam em nenhuma peça.
   private bordasAbertas: number;
 
@@ -60,10 +63,41 @@ export class Feature {
     return this.partes.some((p) => p.tile === tile && p.regiaoId === regiaoId);
   }
 
+  getMarcadores(): readonly Marcador[] {
+    return this.marcadores;
+  }
+
+  // Ocupada: já tem marcador de alguém, então não aceita outro (RN04).
+  estaOcupada(): boolean {
+    return this.marcadores.length > 0;
+  }
+
+  // Quem pontua quando ela fica completa.
+  donos(): Jogador[] {
+    return donosDaMaioria(this.marcadores);
+  }
+
+  adicionarMarcador(marcador: Marcador): void {
+    if (this.estaOcupada()) {
+      throw new Error('Esta construção já tem marcador.');
+    }
+    if (!this.contem(marcador.tile, marcador.regiaoId)) {
+      throw new Error('O marcador precisa estar numa região desta construção.');
+    }
+    this.marcadores.push(marcador);
+  }
+
+  // Tira todos os marcadores (ao pontuar) e devolve quais eram.
+  removerMarcadores(): Marcador[] {
+    return this.marcadores.splice(0);
+  }
+
   // Os dois métodos abaixo são usados só pelo Board ao ligar peças.
 
+  // Ao juntar construções, os marcadores das duas passam a disputar a mesma.
   absorver(outra: Feature): void {
     this.partes.push(...outra.partes);
+    this.marcadores.push(...outra.marcadores);
     this.bordasAbertas += outra.bordasAbertas;
   }
 

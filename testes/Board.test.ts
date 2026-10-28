@@ -303,11 +303,11 @@ describe('Board: construções (features)', () => {
 });
 
 // Mesmo formato da previsão, para comparar com o que colocar devolve.
-function previsaoDe(f: Feature): ConstrucaoPrevista {
+function previsaoDe(f: Feature): Pick<ConstrucaoPrevista, 'tipo' | 'quantidadeDeTiles' | 'quantidadeDeCristais'> {
   return { tipo: f.tipo, quantidadeDeTiles: f.quantidadeDeTiles(), quantidadeDeCristais: f.quantidadeDeCristais() };
 }
 
-function resumir(construcoes: readonly ConstrucaoPrevista[]): string[] {
+function resumir(construcoes: readonly Pick<ConstrucaoPrevista, 'tipo' | 'quantidadeDeTiles' | 'quantidadeDeCristais'>[]): string[] {
   return construcoes.map((c) => `${c.tipo}:${c.quantidadeDeTiles}:${c.quantidadeDeCristais}`).sort();
 }
 
@@ -321,7 +321,7 @@ describe('Board: previsão de jogada', () => {
     const meio = peca(ponte);
 
     expect(board.preverConclusoes(meio, jogada(1, -1, 1))).toEqual([
-      { tipo: HABITAT, quantidadeDeTiles: 3, quantidadeDeCristais: 1 },
+      { tipo: HABITAT, quantidadeDeTiles: 3, quantidadeDeCristais: 1, bordasAbertas: 0, marcadores: [], regioesDaPeca: ['h1'] },
     ]);
     expect(meio.estaPosicionado()).toBe(false);
     expect(meio.getRotacao()).toBe(0);
@@ -334,14 +334,18 @@ describe('Board: previsão de jogada', () => {
     const board = new Board(peca(dutoCurva, 3));
     board.colocar(peca(dutoCurva), jogada(1, 0, 0));
     board.colocar(peca(dutoCurva), jogada(0, 1, 2));
-    expect(board.preverConclusoes(peca(dutoCurva), jogada(1, 1, 1))).toEqual([
-      { tipo: PIPE, quantidadeDeTiles: 4, quantidadeDeCristais: 0 },
+    expect(board.preverConclusoes(peca(dutoCurva), jogada(1, 1, 1))).toMatchObject([
+      { tipo: PIPE, quantidadeDeTiles: 4, quantidadeDeCristais: 0, regioesDaPeca: ['d1'] },
     ]);
   });
 
   it('jogada que não completa nada prevê lista vazia; jogada inválida lança erro', () => {
     const board = new Board(peca(fimDeDuto));
     expect(board.preverConclusoes(peca(dutoReto), jogada(1, 0))).toEqual([]);
+    // Mas a construção aberta aparece na previsão completa, com a borda que sobra.
+    expect(board.preverConstrucoes(peca(dutoReto), jogada(1, 0))).toMatchObject([
+      { tipo: PIPE, quantidadeDeTiles: 2, bordasAbertas: 1, regioesDaPeca: ['d1'] },
+    ]);
     expect(() => board.preverConclusoes(peca(dutoReto), jogada(1, 0, 1))).toThrow();
   });
 });
