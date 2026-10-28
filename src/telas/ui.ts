@@ -3,7 +3,7 @@ import { CATALOGO_DE_TILES } from '../jogo/catalogoDeTiles';
 import type { DefinicaoTile } from '../jogo/DefinicaoTile';
 import { TipoDeJogador } from '../jogo/Jogador';
 import { Tile } from '../jogo/Tile';
-import { desenharTile } from './desenharTile';
+import { criarPeca } from './desenharPeca';
 
 // Elementos visuais compartilhados pelas telas.
 
@@ -118,9 +118,7 @@ export function desenharPecaIlustrativa(
   const definicao = typeof peca === 'string' ? definicaoPorId(peca) : peca;
   const tile = new Tile(`ilustracao-${definicao.id}`, definicao);
   tile.definirRotacao(rotacao);
-  const g = cena.add.graphics();
-  desenharTile(g, tile, x, y, tamanho);
-  return g;
+  return criarPeca(cena, tile, x, y, tamanho);
 }
 
 // Uma fileira de peças que se encaixam: dutos ligando duas junções à estufa.

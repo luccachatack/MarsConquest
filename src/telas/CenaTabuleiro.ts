@@ -13,7 +13,8 @@ import type { Tile } from '../jogo/Tile';
 import { TileFactory } from '../jogo/TileFactory';
 import type { DadosDaPartida } from './CenaPreparacao';
 import { desenharMarcador } from './desenharMarcador';
-import { ancoraDaRegiao, desenharTile } from './desenharTile';
+import { criarPeca, desenharPeca } from './desenharPeca';
+import { ancoraDaRegiao } from './desenharTile';
 import { CENAS, corCss, estilo } from './ui';
 
 export const TAMANHO_PECA = 96;
@@ -111,7 +112,7 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   private destaques!: Phaser.GameObjects.Graphics;
   private cruzes!: Phaser.GameObjects.Graphics;
-  private fantasma!: Phaser.GameObjects.Graphics;
+  private fantasma!: Phaser.GameObjects.Container;
   private ultima!: Phaser.GameObjects.Graphics;
   private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
   private inicioDoToque: { x: number; y: number } | null = null;
@@ -143,11 +144,11 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.centralizar();
 
     this.desenharGrade();
-    this.desenharPeca(baralho.getTileInicial());
+    this.desenharNoTabuleiro(baralho.getTileInicial());
     // Camadas: peças (0) < destaques < prévia < contorno da última peça < opções de marcador < marcadores < textos.
     this.destaques = this.add.graphics().setDepth(1);
     this.cruzes = this.add.graphics().setDepth(1);
-    this.fantasma = this.add.graphics().setAlpha(0.6).setDepth(2);
+    this.fantasma = this.add.container(0, 0).setAlpha(0.6).setDepth(2);
     this.ultima = this.add.graphics().setDepth(3);
     this.camadaDeOpcoes = this.add.graphics().setDepth(4);
     this.tweens.add({ targets: this.camadaDeOpcoes, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
@@ -247,13 +248,13 @@ export class CenaTabuleiro extends Phaser.Scene {
   private colocarPeca(jogada: Jogada): void {
     this.partida.colocarPeca(jogada);
     const tile = this.partida.getPecaAtual()!;
-    this.desenharPeca(tile);
+    this.desenharNoTabuleiro(tile);
     const p = jogada.position;
     this.ultima
       .clear()
       .lineStyle(4, this.partida.getJogadorDaVez().cor, 1)
       .strokeRect(p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA);
-    this.fantasma.clear();
+    this.fantasma.removeAll(true);
   }
 
   // Clique de um humano na etapa da peça.
@@ -306,7 +307,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   // Mostra o marcador colocado, pontua o que foi completado e passa para o próximo turno.
   private terminarTurno(resultado: ResultadoDoTurno): void {
     this.opcoes = [];
-    this.fantasma.clear();
+    this.fantasma.removeAll(true);
     if (resultado.marcador) {
       this.desenharMarcadorNoTabuleiro(resultado.marcador);
       const regiao = resultado.marcador.tile.getRegioes().find((r) => r.id === resultado.marcador!.regiaoId)!;
@@ -432,9 +433,9 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.eventos = [texto, ...this.eventos].slice(0, MAXIMO_DE_EVENTOS);
   }
 
-  private desenharPeca(tile: Tile): void {
+  private desenharNoTabuleiro(tile: Tile): void {
     const p = tile.getPosicao()!;
-    desenharTile(this.add.graphics(), tile, p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA);
+    criarPeca(this, tile, p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA);
   }
 
   // Pontos discretos marcando a grade, numa área grande em volta do centro.
@@ -476,7 +477,7 @@ export class CenaTabuleiro extends Phaser.Scene {
         if (this.arrastando) {
           camera.scrollX -= (p.x - p.prevPosition.x) / camera.zoom;
           camera.scrollY -= (p.y - p.prevPosition.y) / camera.zoom;
-          this.fantasma.clear();
+          this.fantasma.removeAll(true);
         }
         return;
       }
@@ -511,7 +512,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   // Prévia sob o ponteiro, só na vez de um humano: a peça onde ela encaixa,
   // ou o marcador sobre a região escolhida.
   private mostrarFantasma(ponteiro: Phaser.Input.Pointer | null): void {
-    this.fantasma.clear();
+    this.fantasma.removeAll(true);
     const atual = this.partida.getPecaAtual();
     const posicao = ponteiro ? this.posicaoSobPonteiro(ponteiro) : null;
     const mudouDePosicao = posicao === null ? this.posicaoSobMouse !== null : !this.posicaoSobMouse?.equals(posicao);
@@ -526,7 +527,9 @@ export class CenaTabuleiro extends Phaser.Scene {
       const opcao = this.opcaoEm(mundo.x, mundo.y);
       if (!opcao) return;
       const cor = this.partida.getJogadorDaVez().cor;
-      desenharMarcador(this.fantasma, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA);
+      const g = this.add.graphics();
+      desenharMarcador(g, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA);
+      this.fantasma.add(g);
       return;
     }
     if (!this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
@@ -542,10 +545,10 @@ export class CenaTabuleiro extends Phaser.Scene {
   }
 
   private desenharFantasmaDaPeca(): void {
-    this.fantasma.clear();
+    this.fantasma.removeAll(true);
     const atual = this.partida.getPecaAtual();
     const posicao = this.posicaoSobMouse;
     if (!atual || !posicao || !this.encaixes.get(posicao.chave())?.includes(atual.getRotacao())) return;
-    desenharTile(this.fantasma, atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
+    desenharPeca(this, this.fantasma, atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
   }
 }

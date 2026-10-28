@@ -5,7 +5,7 @@ import { TipoDeMarcador } from '../jogo/Marcador';
 import type { Colocacao } from '../jogo/Partida';
 import { CenaTabuleiro, LARGURA_TABULEIRO, type EstadoDoTabuleiro } from './CenaTabuleiro';
 import { desenharMarcador } from './desenharMarcador';
-import { desenharTile } from './desenharTile';
+import { desenharPeca } from './desenharPeca';
 import {
   CENAS,
   COR_PAINEL,
@@ -53,7 +53,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
   private linhas: LinhaDoPlacar[] = [];
   private textoBaralho!: Phaser.GameObjects.Text;
   private textoVez!: Phaser.GameObjects.Text;
-  private previa!: Phaser.GameObjects.Graphics;
+  private previa!: Phaser.GameObjects.Container;
   private textoPeca!: Phaser.GameObjects.Text;
   private rotuloA!: Phaser.GameObjects.Text;
   private rotuloB!: Phaser.GameObjects.Text;
@@ -93,7 +93,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     }
 
     this.textoVez = this.add.text(x, Y_VEZ, '', estilo(16, COR_TEXTO, true));
-    this.previa = this.add.graphics();
+    this.previa = this.add.container(0, 0);
     this.add
       .zone(x, Y_PREVIA, TAMANHO_PREVIA, TAMANHO_PREVIA)
       .setOrigin(0)
@@ -170,7 +170,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
 
   private atualizarVez(estado: EstadoDoTabuleiro): void {
     const x = X0 + MARGEM;
-    this.previa.clear();
+    this.previa.removeAll(true);
     const jogador = estado.jogadorDaVez;
     const etapaDoMarcador = estado.fase === FaseDaPartida.COLOCAR_MARCADOR && jogador && !jogador.ehCpu();
     this.rotuloA.setText(etapaDoMarcador ? `Chefe: ${estado.usarChefe ? 'sim' : 'não'} (E)` : 'Girar (R)');
@@ -183,7 +183,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     }
 
     this.textoVez.setText(`Vez de ${jogador.nome}`).setColor(corCss(jogador.cor));
-    desenharTile(this.previa, estado.atual, x, Y_PREVIA, TAMANHO_PREVIA);
+    desenharPeca(this, this.previa, estado.atual, x, Y_PREVIA, TAMANHO_PREVIA);
     const nome = nomeDaPeca(estado.atual.getDefinicao().id);
     if (jogador.ehCpu()) {
       this.textoPeca.setText(`${nome}\n\nO computador está escolhendo onde colocar…`);

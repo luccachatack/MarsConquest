@@ -8,8 +8,8 @@ import type { Tile } from '../jogo/Tile';
 export const CORES = {
   solo: 0xc4562f,
   soloPedras: 0xa8452a,
-  habitat: 0xdfe3e8,
-  paredeHabitat: 0x5d6878,
+  habitat: 0xd9cbb7,
+  paredeHabitat: 0x4a3a30,
   duto: 0x2b3038,
   dutoBrilho: 0x8a96a8,
   estufa: 0x4fae62,

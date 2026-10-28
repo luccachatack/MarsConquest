@@ -6,7 +6,8 @@ import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
 import type { TileDeck } from '../jogo/TileDeck';
 import { TileFactory } from '../jogo/TileFactory';
-import { CORES, desenharTile } from './desenharTile';
+import { criarPeca, desenharPeca } from './desenharPeca';
+import { CORES } from './desenharTile';
 import {
   CENAS,
   COR_DESTAQUE,
@@ -52,7 +53,7 @@ export class CenaCatalogo extends Phaser.Scene {
   private baralho!: TileDeck;
   private atual!: Tile;
   private origemAtual = '';
-  private desenhoAtual!: Phaser.GameObjects.Graphics;
+  private desenhoAtual!: Phaser.GameObjects.Container;
   private textoRestantes!: Phaser.GameObjects.Text;
   private textoNome!: Phaser.GameObjects.Text;
   private textoDetalhes!: Phaser.GameObjects.Text;
@@ -88,8 +89,7 @@ export class CenaCatalogo extends Phaser.Scene {
       const tile = fabrica.criarTile(definicao);
 
       const destaque = this.add.graphics();
-      const desenho = this.add.graphics();
-      desenharTile(desenho, tile, x, cy, tamanho);
+      const desenho = criarPeca(this, tile, x, cy, tamanho);
 
       const rotulo = this.add.text(x + tamanho / 2, cy + tamanho + 6, `${nomeDaPeca(definicao.id)}  ×${quantidade}`, {
         ...estilo(12, COR_TEXTO_FRACO),
@@ -109,8 +109,8 @@ export class CenaCatalogo extends Phaser.Scene {
       });
       area.on('pointerdown', () => {
         tile.rotacionar();
-        desenho.clear();
-        desenharTile(desenho, tile, x, cy, tamanho);
+        desenho.removeAll(true);
+        desenharPeca(this, desenho, tile, x, cy, tamanho);
       });
     });
   }
@@ -123,7 +123,7 @@ export class CenaCatalogo extends Phaser.Scene {
     this.add.text(x0 + 24, 44, 'Baralho', estilo(22, COR_TEXTO, true));
     this.textoRestantes = this.add.text(x0 + 24, 76, '', estilo(15, COR_TEXTO_FRACO));
 
-    this.desenhoAtual = this.add.graphics();
+    this.desenhoAtual = this.add.container(0, 0);
     this.add
       .zone(X_ATUAL, Y_ATUAL, TAMANHO_ATUAL, TAMANHO_ATUAL)
       .setOrigin(0)
@@ -183,8 +183,8 @@ export class CenaCatalogo extends Phaser.Scene {
       this.origemAtual = origem;
     }
 
-    this.desenhoAtual.clear();
-    desenharTile(this.desenhoAtual, tile, X_ATUAL, Y_ATUAL, TAMANHO_ATUAL);
+    this.desenhoAtual.removeAll(true);
+    desenharPeca(this, this.desenhoAtual, tile, X_ATUAL, Y_ATUAL, TAMANHO_ATUAL);
 
     const definicao = tile.getDefinicao();
     this.textoNome.setText(nomeDaPeca(definicao.id));

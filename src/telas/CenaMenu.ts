@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { carregarArteDasPecas } from './desenharPeca';
 import { ARQUIVO_DA_CAPA, CAPA_DO_MENU as CAPA, CENAS, estilo } from './ui';
 
 const LARGURA = 1280;
@@ -21,6 +22,8 @@ export class CenaMenu extends Phaser.Scene {
 
   preload(): void {
     this.load.image(CAPA, ARQUIVO_DA_CAPA);
+    // A arte das peças fica carregada para o jogo todo: todas as telas passam pelo menu.
+    carregarArteDasPecas(this);
   }
 
   create(): void {
