@@ -1,7 +1,7 @@
 import { Direction, TODAS_DIRECOES } from './Direction';
 import { Feature } from './Feature';
 import { Jogada } from './Jogada';
-import { ladoDoPonto, pontoOposto } from './PontosDeBorda';
+import { ladoDoPonto, pontoOposto, rotacionarPonto } from './PontosDeBorda';
 import { Position } from './Position';
 import { Terrain } from './Terrain';
 import type { Tile } from './Tile';
@@ -20,6 +20,21 @@ const NOMES_DIRECAO: Record<Direction, string> = {
 
 function chaveDaParte(tile: Tile, regiaoId: string): string {
   return `${tile.id}#${regiaoId}`;
+}
+
+// O que uma construção teria se a jogada fosse feita: o suficiente para pontuar.
+export interface ConstrucaoPrevista {
+  readonly tipo: Terrain;
+  readonly quantidadeDeTiles: number;
+  readonly quantidadeDeCristais: number;
+}
+
+// Grupo da previsão: construções existentes e regiões da peça nova que a jogada juntaria.
+interface GrupoPrevisto {
+  tipo: Terrain;
+  bordasAbertas: number;
+  tiles: Set<Tile>;
+  cristais: Set<Tile>;
 }
 
 // Tabuleiro: guarda as peças colocadas e as construções que elas formam.
@@ -114,6 +129,72 @@ export class Board {
     }
     tile.definirRotacao(jogada.rotacao);
     return this.inserir(tile, jogada.position);
+  }
+
+  // As construções que a jogada completaria, sem colocar a peça nem mudar nada.
+  // Faz a mesma conta de colocar: cada ligação fecha 2 bordas, e construções ligadas se juntam.
+  preverConclusoes(tile: Tile, jogada: Jogada): ConstrucaoPrevista[] {
+    const erro = this.validarJogada(tile, jogada);
+    if (erro) {
+      throw new Error(erro);
+    }
+    const locais = new UnionFind();
+    const grupos = new Map<string, GrupoPrevisto>();
+    const ligacoes: string[] = [];
+    const adicionar = (chave: string, grupo: GrupoPrevisto) => {
+      if (!locais.contem(chave)) {
+        locais.adicionar(chave);
+        grupos.set(chave, grupo);
+      }
+    };
+
+    for (const regiao of tile.getDefinicao().regioes) {
+      if (!TIPOS_COM_FEATURE.has(regiao.tipo)) continue;
+      const pontos = regiao.pontos.map((p) => rotacionarPonto(p, jogada.rotacao));
+      const chave = `nova#${regiao.id}`;
+      adicionar(chave, {
+        tipo: regiao.tipo,
+        bordasAbertas: pontos.length,
+        tiles: new Set([tile]),
+        cristais: new Set(regiao.cristal ? [tile] : []),
+      });
+      for (const p of pontos) {
+        const vizinha = this.getTile(jogada.position.vizinha(ladoDoPonto(p)));
+        if (!vizinha) continue;
+        const chaveVizinha = chaveDaParte(vizinha, vizinha.getRegiaoNoPonto(pontoOposto(p)).id);
+        const raiz = this.conjuntos.encontrar(chaveVizinha);
+        const feature = this.featuresPorRaiz.get(raiz)!;
+        adicionar(raiz, {
+          tipo: feature.tipo,
+          bordasAbertas: feature.getBordasAbertas(),
+          tiles: new Set(feature.getTiles()),
+          cristais: new Set(feature.getTilesComCristal()),
+        });
+        locais.unir(chave, raiz);
+        ligacoes.push(chave);
+      }
+    }
+
+    // Soma cada grupo na sua raiz e desconta 2 bordas por ligação.
+    const somas = new Map<string, GrupoPrevisto>();
+    for (const [chave, grupo] of grupos) {
+      const raiz = locais.encontrar(chave);
+      const soma = somas.get(raiz);
+      if (!soma) {
+        somas.set(raiz, { ...grupo, tiles: new Set(grupo.tiles), cristais: new Set(grupo.cristais) });
+        continue;
+      }
+      soma.bordasAbertas += grupo.bordasAbertas;
+      grupo.tiles.forEach((t) => soma.tiles.add(t));
+      grupo.cristais.forEach((t) => soma.cristais.add(t));
+    }
+    for (const chave of ligacoes) {
+      somas.get(locais.encontrar(chave))!.bordasAbertas -= 2;
+    }
+
+    return [...somas.values()]
+      .filter((g) => g.bordasAbertas === 0)
+      .map((g) => ({ tipo: g.tipo, quantidadeDeTiles: g.tiles.size, quantidadeDeCristais: g.cristais.size }));
   }
 
   getFeatureDe(tile: Tile, regiaoId: string): Feature | undefined {

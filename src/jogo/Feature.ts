@@ -35,11 +35,15 @@ export class Feature {
   }
 
   // Peças com cristal numa região desta construção.
-  quantidadeDeCristais(): number {
+  getTilesComCristal(): Tile[] {
     const comCristal = this.partes
       .filter((p) => p.tile.getDefinicao().regioes.find((r) => r.id === p.regiaoId)?.cristal)
       .map((p) => p.tile);
-    return new Set(comCristal).size;
+    return [...new Set(comCristal)];
+  }
+
+  quantidadeDeCristais(): number {
+    return this.getTilesComCristal().length;
   }
 
   getBordasAbertas(): number {

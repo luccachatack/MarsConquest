@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Board } from '../src/jogo/Board';
+import { Board, type ConstrucaoPrevista } from '../src/jogo/Board';
 import { CATALOGO_DE_TILES, ID_TILE_INICIAL } from '../src/jogo/catalogoDeTiles';
 import { DefinicaoTile } from '../src/jogo/DefinicaoTile';
+import type { Feature } from '../src/jogo/Feature';
 import { TODAS_DIRECOES } from '../src/jogo/Direction';
 import { Jogada } from '../src/jogo/Jogada';
 import { ladoDoPonto, pontoOposto } from '../src/jogo/PontosDeBorda';
@@ -301,9 +302,53 @@ describe('Board: construções (features)', () => {
   });
 });
 
+// Mesmo formato da previsão, para comparar com o que colocar devolve.
+function previsaoDe(f: Feature): ConstrucaoPrevista {
+  return { tipo: f.tipo, quantidadeDeTiles: f.quantidadeDeTiles(), quantidadeDeCristais: f.quantidadeDeCristais() };
+}
+
+function resumir(construcoes: readonly ConstrucaoPrevista[]): string[] {
+  return construcoes.map((c) => `${c.tipo}:${c.quantidadeDeTiles}:${c.quantidadeDeCristais}`).sort();
+}
+
+describe('Board: previsão de jogada', () => {
+  it('prevê a peça que une dois habitats sem mudar o tabuleiro', () => {
+    const board = new Board(peca(soloPuro));
+    board.colocar(peca(soloPuro), jogada(1, 0));
+    board.colocar(peca(soloPuro), jogada(2, 0));
+    board.colocar(peca(habitatNorteCristal), jogada(0, -1, 1));
+    board.colocar(peca(habitatNorte), jogada(2, -1, 3));
+    const meio = peca(ponte);
+
+    expect(board.preverConclusoes(meio, jogada(1, -1, 1))).toEqual([
+      { tipo: HABITAT, quantidadeDeTiles: 3, quantidadeDeCristais: 1 },
+    ]);
+    expect(meio.estaPosicionado()).toBe(false);
+    expect(meio.getRotacao()).toBe(0);
+    expect(board.getFeatures(HABITAT)).toHaveLength(2);
+    expect(board.getFeatures(HABITAT).every((f) => !f.estaCompleta())).toBe(true);
+    conferirInvariantes(board);
+  });
+
+  it('prevê o duto em circuito, contando cada peça uma vez', () => {
+    const board = new Board(peca(dutoCurva, 3));
+    board.colocar(peca(dutoCurva), jogada(1, 0, 0));
+    board.colocar(peca(dutoCurva), jogada(0, 1, 2));
+    expect(board.preverConclusoes(peca(dutoCurva), jogada(1, 1, 1))).toEqual([
+      { tipo: PIPE, quantidadeDeTiles: 4, quantidadeDeCristais: 0 },
+    ]);
+  });
+
+  it('jogada que não completa nada prevê lista vazia; jogada inválida lança erro', () => {
+    const board = new Board(peca(fimDeDuto));
+    expect(board.preverConclusoes(peca(dutoReto), jogada(1, 0))).toEqual([]);
+    expect(() => board.preverConclusoes(peca(dutoReto), jogada(1, 0, 1))).toThrow();
+  });
+});
+
 describe('Board: partida simulada com o catálogo', () => {
   for (const semente of [1, 2, 3]) {
-    it(`coloca todas as peças possíveis sem quebrar as regras (semente ${semente})`, () => {
+    it(`coloca todas as peças possíveis sem quebrar as regras e a previsão acerta (semente ${semente})`, () => {
       const aleatorio = comSemente(semente);
       const baralho = new TileFactory().criarBaralho(CATALOGO_DE_TILES, ID_TILE_INICIAL, aleatorio);
       const board = new Board(baralho.getTileInicial());
@@ -315,7 +360,10 @@ describe('Board: partida simulada com o catálogo', () => {
           descartadas++;
           continue;
         }
-        board.colocar(tile, jogadas[Math.floor(aleatorio() * jogadas.length)]);
+        const escolhida = jogadas[Math.floor(aleatorio() * jogadas.length)];
+        const previstas = board.preverConclusoes(tile, escolhida);
+        const concluidas = board.colocar(tile, escolhida);
+        expect(resumir(previstas)).toEqual(resumir(concluidas.map(previsaoDe)));
       }
 
       expect(board.quantidadeDeTiles() + descartadas).toBe(60);
