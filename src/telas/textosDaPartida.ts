@@ -20,7 +20,10 @@ export function ultimosAcontecimentos(eventos: readonly string[], quantidade: nu
   return quantidade > 0 ? eventos.slice(-quantidade) : [];
 }
 
-// Situação no painel com a peça sobre a casa escolhida, antes de confirmar.
-export function situacaoDaEscolha(jeitos: number): string {
-  return jeitos > 1 ? `Encaixa de ${jeitos} jeitos aqui: gire ou confirme.` : 'Só encaixa assim aqui: confirme ou volte.';
+// Situação no painel com a peça sobre a casa escolhida, antes de confirmar: de quantos jeitos
+// ela encaixa ali e quantos lugares ficariam sem peça que caiba (X) se ela fosse colocada assim.
+export function situacaoDaEscolha(jeitos: number, xNovos: number): string {
+  const jeito = jeitos > 1 ? `Encaixa de ${jeitos} jeitos aqui.` : 'Só encaixa assim aqui.';
+  const consequencia = xNovos === 0 ? 'Não cria X novo.' : `Cria ${xNovos} X novo${xNovos === 1 ? '' : 's'}.`;
+  return `${jeito}\n${consequencia}`;
 }

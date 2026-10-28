@@ -49,6 +49,8 @@ export interface EstadoDoTabuleiro {
   readonly rotacoesNaPosicao: number;
   // A peça já está sobre uma casa esperando o jogador girar, voltar ou confirmar.
   readonly pecaEscolhida: boolean;
+  // Com a peça escolhida: quantos lugares novos ficariam sem peça que caiba (X) se ela fosse colocada assim.
+  readonly xNovosNaEscolha: number;
   // Na etapa do marcador: quantas regiões da peça aceitam marcador e se o chefe está escolhido.
   readonly regioesParaMarcador: number;
   readonly usarChefe: boolean;
@@ -132,6 +134,9 @@ export class CenaTabuleiro extends Phaser.Scene {
   private fantasma!: Phaser.GameObjects.Container;
   private escolha!: Phaser.GameObjects.Container;
   private camadaDosCampos!: Phaser.GameObjects.Graphics;
+  // X de prévia: onde a peça escolhida, se confirmada, deixaria um lugar sem peça que caiba.
+  private previaDosX!: Phaser.GameObjects.Graphics;
+  private xNovosNaEscolha = 0;
   private mostrandoCampos = false;
   private ultima!: Phaser.GameObjects.Graphics;
   private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
@@ -160,6 +165,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.escolhida = null;
     this.semEncaixe = new Set();
     this.mostrandoCampos = false;
+    this.xNovosNaEscolha = 0;
 
     // O tabuleiro ocupa a tela toda; os painéis (CenaPainelTabuleiro) ficam por cima.
     this.cameras.main.setBackgroundColor(COR_FUNDO);
@@ -175,6 +181,8 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.escolha = this.add.container(0, 0).setDepth(2);
     // Acima das peças e dos destaques, abaixo da prévia e dos marcadores.
     this.camadaDosCampos = this.add.graphics().setDepth(1.5);
+    this.previaDosX = this.add.graphics().setDepth(1.6);
+    this.tweens.add({ targets: this.previaDosX, alpha: 0.35, duration: 500, yoyo: true, repeat: -1 });
     this.ultima = this.add.graphics().setDepth(3);
     this.camadaDeOpcoes = this.add.graphics().setDepth(4);
     this.tweens.add({ targets: this.camadaDeOpcoes, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
@@ -217,6 +225,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     if (!this.escolhida || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
     this.escolhida = null;
     this.escolha.removeAll(true);
+    this.limparPreviaDosX();
     this.emitirEstado();
   }
 
@@ -227,6 +236,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     if (!posicao || !atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
     this.escolhida = null;
     this.escolha.removeAll(true);
+    this.limparPreviaDosX();
     this.encaixes = new Map();
     this.colocarPeca(new Jogada(posicao, atual.getRotacao()));
 
@@ -301,6 +311,7 @@ export class CenaTabuleiro extends Phaser.Scene {
         return (posicao && this.encaixes.get(posicao.chave())?.length) || 0;
       })(),
       pecaEscolhida: this.escolhida !== null,
+      xNovosNaEscolha: this.xNovosNaEscolha,
       regioesParaMarcador: this.opcoes.length,
       usarChefe: this.usarChefe,
       mostrandoCampos: this.mostrandoCampos,
@@ -327,6 +338,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.usarChefe = false;
     this.escolhida = null;
     this.escolha.removeAll(true);
+    this.limparPreviaDosX();
     this.atualizar();
     if (this.partida.estaEncerrada() || !this.partida.getJogadorDaVez().ehCpu()) return;
     this.time.delayedCall(ESPERA_DA_CPU_MS, () => {
@@ -379,6 +391,29 @@ export class CenaTabuleiro extends Phaser.Scene {
     desenharPeca(this, this.escolha, atual, x, y, TAMANHO_PECA);
     const contorno = this.add.graphics().lineStyle(4, this.partida.getJogadorDaVez().cor, 1).strokeRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
     this.escolha.add(contorno);
+    this.desenharPreviaDosX(new Jogada(p, atual.getRotacao()));
+  }
+
+  // Os lugares que a jogada deixaria sem peça que caiba e que ainda não estão marcados com X:
+  // X tracejado e piscando, para não confundir com os que já existem.
+  private desenharPreviaDosX(jogada: Jogada): void {
+    const novos = this.partida.posicoesSemEncaixeSeColocar(jogada).filter((p) => !this.semEncaixe.has(p.chave()));
+    this.xNovosNaEscolha = novos.length;
+    const g = this.previaDosX.clear();
+    const margem = TAMANHO_PECA * 0.28;
+    for (const p of novos) {
+      const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
+      g.fillStyle(COR_SEM_ENCAIXE, 0.12).fillRect(x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8);
+      tracejarRetangulo(g.lineStyle(2, COR_SEM_ENCAIXE, 0.9), x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8, 6);
+      g.lineStyle(5, COR_SEM_ENCAIXE, 0.9);
+      g.lineBetween(x + margem, y + margem, x + TAMANHO_PECA - margem, y + TAMANHO_PECA - margem);
+      g.lineBetween(x + TAMANHO_PECA - margem, y + margem, x + margem, y + TAMANHO_PECA - margem);
+    }
+  }
+
+  private limparPreviaDosX(): void {
+    this.previaDosX.clear();
+    this.xNovosNaEscolha = 0;
   }
 
   // Clique de um humano na etapa do marcador: escolhe a região mais próxima do clique.

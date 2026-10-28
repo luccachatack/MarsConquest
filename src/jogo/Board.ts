@@ -168,6 +168,34 @@ export class Board {
     );
   }
 
+  // As posições sem encaixe como ficariam se a peça fosse colocada na jogada, sem colocar nada:
+  // a casa da jogada deixa de estar livre, as vizinhas vazias dela passam a estar, e quem
+  // encostar nela também precisa combinar com a peça nova. Usada na prévia antes de confirmar.
+  posicoesSemEncaixeDepoisDe(tile: Tile, jogada: Jogada, definicoes: readonly DefinicaoTile[]): Position[] {
+    const erro = this.validarJogada(tile, jogada);
+    if (erro) {
+      throw new Error(erro);
+    }
+    // Uma cópia na rotação da jogada: a peça de verdade não é girada nem posicionada.
+    const nova = new Tile(`previsao-${tile.id}`, tile.getDefinicao());
+    nova.definirRotacao(jogada.rotacao);
+    const pecaEm = (p: Position) => (p.equals(jogada.position) ? nova : this.getTile(p));
+
+    const livres = new Map<string, Position>();
+    for (const p of [...this.posicoesDisponiveis(), ...TODAS_DIRECOES.map((d) => jogada.position.vizinha(d))]) {
+      if (!pecaEm(p)) livres.set(p.chave(), p);
+    }
+    const testes = definicoes.map((d) => new Tile(`teste-${d.id}`, d));
+    const cabe = (teste: Tile, posicao: Position, rotacao: number) =>
+      TODAS_DIRECOES.every((d) => {
+        const vizinha = pecaEm(posicao.vizinha(d));
+        return !vizinha || teste.conectaCom(vizinha, d, rotacao);
+      });
+    return [...livres.values()].filter(
+      (posicao) => !testes.some((teste) => [0, 1, 2, 3].some((rotacao) => cabe(teste, posicao, rotacao))),
+    );
+  }
+
   // Coloca a peça e devolve as construções que ela completou.
   colocar(tile: Tile, jogada: Jogada): Feature[] {
     const erro = this.validarJogada(tile, jogada);

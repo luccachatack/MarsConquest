@@ -39,11 +39,15 @@ describe('últimos acontecimentos', () => {
 });
 
 describe('peça escolhida antes de confirmar', () => {
-  it('com vários jeitos, convida a girar', () => {
-    expect(situacaoDaEscolha(3)).toBe('Encaixa de 3 jeitos aqui: gire ou confirme.');
+  it('com vários jeitos e sem X novo', () => {
+    expect(situacaoDaEscolha(3, 0)).toBe('Encaixa de 3 jeitos aqui.\nNão cria X novo.');
   });
 
-  it('com um jeito só, não fala em girar', () => {
-    expect(situacaoDaEscolha(1)).toBe('Só encaixa assim aqui: confirme ou volte.');
+  it('com um jeito só e um X novo, no singular', () => {
+    expect(situacaoDaEscolha(1, 1)).toBe('Só encaixa assim aqui.\nCria 1 X novo.');
+  });
+
+  it('com vários X novos, no plural', () => {
+    expect(situacaoDaEscolha(2, 3)).toBe('Encaixa de 2 jeitos aqui.\nCria 3 X novos.');
   });
 });

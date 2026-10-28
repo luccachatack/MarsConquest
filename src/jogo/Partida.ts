@@ -126,6 +126,13 @@ export class Partida {
     return this.board.posicoesSemEncaixe([...definicoes]);
   }
 
+  // Prévia de posicoesSemEncaixe: como ficariam se a peça da vez fosse colocada na jogada.
+  // Depois de colocada, ela deixa de contar entre as que restam; ficam só as do baralho.
+  posicoesSemEncaixeSeColocar(jogada: Jogada): Position[] {
+    if (!this.atual || this.atual.estaPosicionado()) return [];
+    return this.board.posicoesSemEncaixeDepoisDe(this.atual, jogada, this.baralho.getDefinicoesRestantes());
+  }
+
   // Todos os marcadores que estão no tabuleiro agora.
   getMarcadoresNoTabuleiro(): Marcador[] {
     return this.board.getFeatures().flatMap((f) => [...f.getMarcadores()]);

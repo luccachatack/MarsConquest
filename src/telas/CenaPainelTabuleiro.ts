@@ -526,7 +526,9 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
 
     if (estado.pecaEscolhida) {
       const varios = estado.rotacoesNaPosicao > 1;
-      this.mostrarTextosDaPeca(nome, rotacao, situacaoDaEscolha(estado.rotacoesNaPosicao));
+      this.mostrarTextosDaPeca(nome, rotacao, situacaoDaEscolha(estado.rotacoesNaPosicao, estado.xNovosNaEscolha));
+      // Vermelho quando a jogada deixa algum lugar sem peça que caiba.
+      this.situacao.setColor(estado.xNovosNaEscolha > 0 ? '#ff9b85' : LARANJA);
       this.botaoGirarPequeno.configurar({ texto: '↻', tipo: varios ? 'secundario' : 'desligado', acao: () => this.tabuleiro.girar() });
       this.botaoVoltar.configurar({ texto: 'Voltar', tipo: 'secundario', acao: () => this.tabuleiro.voltar() });
       this.botaoConfirmar.configurar({ texto: 'Confirmar', tecla: '↵', tipo: 'principal', acao: () => this.tabuleiro.confirmar() });
@@ -545,7 +547,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
   private mostrarTextosDaPeca(nome: string, detalhe: string, situacao: string): void {
     this.nomeDaPeca.setText(nome);
     this.detalheDaPeca.setText(detalhe);
-    this.situacao.setText(situacao);
+    this.situacao.setText(situacao).setColor(LARANJA);
     const altura = this.nomeDaPeca.height + 6 + this.detalheDaPeca.height + 6 + this.situacao.height;
     let y = VEZ.y + 40 + (VEZ.peca - altura) / 2;
     this.nomeDaPeca.setY(y + this.nomeDaPeca.height / 2);
