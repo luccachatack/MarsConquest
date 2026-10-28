@@ -1,17 +1,19 @@
 import Phaser from 'phaser';
 import { estrategiaPara, type EstrategiaDeJogo } from '../ia/EstrategiaDeJogo';
 import { CATALOGO_DE_TILES, ID_TILE_INICIAL } from '../jogo/catalogoDeTiles';
-import type { Feature } from '../jogo/Feature';
+import { FaseDaPartida } from '../jogo/EstadoDaPartida';
 import { Jogada } from '../jogo/Jogada';
 import { Jogador } from '../jogo/Jogador';
-import { Partida, type Colocacao, type ResultadoDaJogada } from '../jogo/Partida';
+import { TipoDeMarcador, type Marcador } from '../jogo/Marcador';
+import { Partida, type Colocacao, type ConstrucaoConcluida, type ResultadoDoTurno } from '../jogo/Partida';
 import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
 import { TileFactory } from '../jogo/TileFactory';
 import type { DadosDaPartida } from './CenaPreparacao';
-import { desenharTile } from './desenharTile';
-import { CENAS, corCss, estilo, nomeDaPeca } from './ui';
+import { desenharMarcador } from './desenharMarcador';
+import { ancoraDaRegiao, desenharTile } from './desenharTile';
+import { CENAS, corCss, estilo } from './ui';
 
 export const TAMANHO_PECA = 96;
 // Largura da área do tabuleiro; à direita fica o painel (CenaPainelTabuleiro).
@@ -20,6 +22,8 @@ export const LARGURA_TABULEIRO = 900;
 const COR_VALIDA = 0x5fd38d;
 const COR_DISPONIVEL = 0x5d6878;
 const DISTANCIA_PARA_ARRASTAR = 6;
+// Raio, em pixels do mundo, em que um clique escolhe uma região para o marcador.
+const RAIO_DA_OPCAO = 16;
 // Pausa antes da jogada do computador, para dar tempo de ver o que acontece.
 const ESPERA_DA_CPU_MS = 700;
 const MAXIMO_DE_EVENTOS = 5;
@@ -28,35 +32,60 @@ export interface EstadoDoTabuleiro {
   readonly jogadores: readonly Jogador[];
   // undefined quando a partida acabou.
   readonly jogadorDaVez: Jogador | undefined;
+  readonly fase: FaseDaPartida;
   readonly atual: Tile | undefined;
   readonly restantes: number;
   readonly colocadas: number;
   readonly descartadas: number;
   readonly posicoesValidasNaRotacao: number;
+  // Na etapa do marcador: quantas regiões da peça aceitam marcador e se o chefe está escolhido.
+  readonly regioesParaMarcador: number;
+  readonly usarChefe: boolean;
   readonly eventos: readonly string[];
   // Preenchida só no fim da partida.
   readonly classificacao: readonly Colocacao[] | null;
 }
 
-function descreverConclusao(f: Feature, pontos: number, jogador: Jogador): string {
-  const pecas = f.quantidadeDeTiles();
-  if (f.tipo === Terrain.HABITAT) {
-    const cristais = f.quantidadeDeCristais();
-    return `${jogador.nome} fechou um habitat de ${pecas} peças${cristais ? ` com ${cristais} cristal(is)` : ''}: +${pontos}.`;
-  }
-  return `${jogador.nome} completou um duto de ${pecas} peças: +${pontos}.`;
+interface OpcaoDeMarcador {
+  readonly regiaoId: string;
+  readonly x: number;
+  readonly y: number;
 }
 
-// Partida de verdade: jogadores humanos e CPUs se revezam colocando peças.
+function nomeDoTerreno(tipo: Terrain): string {
+  return tipo === Terrain.HABITAT ? 'habitat' : 'duto';
+}
+
+function listarNomes(jogadores: readonly Jogador[]): string {
+  const nomes = jogadores.map((j) => j.nome);
+  return nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}` : nomes[0];
+}
+
+function descreverConclusao({ feature, pontos, donos }: ConstrucaoConcluida): string {
+  const pecas = feature.quantidadeDeTiles();
+  const cristais = feature.quantidadeDeCristais();
+  const oQue =
+    feature.tipo === Terrain.HABITAT
+      ? `Habitat de ${pecas} peças${cristais ? ` (${cristais} com cristal)` : ''} fechado`
+      : `Duto de ${pecas} peças completo`;
+  if (donos.length === 0) return `${oQue}, sem colonos: ninguém pontua.`;
+  return `${oQue}: +${pontos} para ${listarNomes(donos)}${donos.length > 1 ? ' (empate)' : ''}.`;
+}
+
+// A partida: humanos e CPUs se revezam. Cada turno: colocar a peça e, se quiser, um marcador nela.
 export class CenaTabuleiro extends Phaser.Scene {
   private dados!: DadosDaPartida;
   private partida!: Partida;
   private estrategias = new Map<Jogador, EstrategiaDeJogo>();
   private eventos: string[] = [];
+  private usarChefe = false;
+  private opcoes: OpcaoDeMarcador[] = [];
+  private desenhosDosMarcadores = new Map<Marcador, Phaser.GameObjects.Graphics>();
 
   private destaques!: Phaser.GameObjects.Graphics;
   private fantasma!: Phaser.GameObjects.Graphics;
   private ultima!: Phaser.GameObjects.Graphics;
+  private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
   private inicioDoToque: { x: number; y: number } | null = null;
   private arrastando = false;
 
@@ -74,6 +103,9 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.partida = new Partida(jogadores, baralho);
     this.estrategias = new Map(jogadores.filter((j) => j.ehCpu()).map((j) => [j, estrategiaPara(j.tipo)]));
     this.eventos = [];
+    this.usarChefe = false;
+    this.opcoes = [];
+    this.desenhosDosMarcadores = new Map();
 
     const camera = this.cameras.main;
     camera.setViewport(0, 0, LARGURA_TABULEIRO, this.scale.height);
@@ -81,10 +113,12 @@ export class CenaTabuleiro extends Phaser.Scene {
 
     this.desenharGrade();
     this.desenharPeca(baralho.getTileInicial());
-    // Camadas: peças (0) < destaques < prévia < contorno da última peça < textos de pontos.
+    // Camadas: peças (0) < destaques < prévia < contorno da última peça < opções de marcador < marcadores < textos.
     this.destaques = this.add.graphics().setDepth(1);
     this.fantasma = this.add.graphics().setAlpha(0.6).setDepth(2);
     this.ultima = this.add.graphics().setDepth(3);
+    this.camadaDeOpcoes = this.add.graphics().setDepth(4);
+    this.tweens.add({ targets: this.camadaDeOpcoes, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
 
     this.configurarEntrada();
     this.scene.launch(CENAS.painelTabuleiro);
@@ -97,10 +131,21 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   girar(): void {
     const atual = this.partida.getPecaAtual();
-    if (!atual || !this.vezDeHumano()) return;
+    if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
     atual.rotacionar();
     this.fantasma.clear();
     this.atualizar();
+  }
+
+  alternarChefe(): void {
+    if (!this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) return;
+    this.usarChefe = !this.usarChefe;
+    this.atualizar();
+  }
+
+  pularMarcador(): void {
+    if (!this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) return;
+    this.terminarTurno(this.partida.pularMarcador());
   }
 
   centralizar(): void {
@@ -125,52 +170,111 @@ export class CenaTabuleiro extends Phaser.Scene {
   emitirEstado(): void {
     const atual = this.partida.getPecaAtual();
     const encerrada = this.partida.estaEncerrada();
+    const fase = this.partida.getFase();
     const estado: EstadoDoTabuleiro = {
       jogadores: this.partida.getJogadores(),
       jogadorDaVez: encerrada ? undefined : this.partida.getJogadorDaVez(),
+      fase,
       atual,
       restantes: this.partida.quantidadeRestante(),
       colocadas: this.partida.getBoard().quantidadeDeTiles(),
       descartadas: this.partida.quantidadeDeDescartadas(),
-      posicoesValidasNaRotacao: atual ? this.posicoesValidasNaRotacao(atual).length : 0,
+      posicoesValidasNaRotacao: atual && fase === FaseDaPartida.COLOCAR_PECA ? this.posicoesValidasNaRotacao(atual).length : 0,
+      regioesParaMarcador: this.opcoes.length,
+      usarChefe: this.usarChefe,
       eventos: this.eventos,
       classificacao: encerrada ? this.partida.classificacao() : null,
     };
     this.events.emit('estado', estado);
   }
 
-  private vezDeHumano(): boolean {
-    return !this.partida.estaEncerrada() && !this.partida.getJogadorDaVez().ehCpu();
+  private vezDeHumano(fase: FaseDaPartida): boolean {
+    return this.partida.getFase() === fase && !this.partida.getJogadorDaVez().ehCpu();
   }
 
   private iniciarTurno(): void {
+    this.usarChefe = false;
     this.atualizar();
-    if (this.partida.estaEncerrada() || this.vezDeHumano()) return;
+    if (this.partida.estaEncerrada() || !this.partida.getJogadorDaVez().ehCpu()) return;
     this.time.delayedCall(ESPERA_DA_CPU_MS, () => {
       const jogador = this.partida.getJogadorDaVez();
-      const jogada = this.estrategias.get(jogador)!.escolherJogada(this.partida.getBoard(), this.partida.getPecaAtual()!);
-      this.jogar(jogada);
+      const decisao = this.estrategias.get(jogador)!.decidir(this.partida.getBoard(), this.partida.getPecaAtual()!, jogador);
+      this.colocarPeca(decisao.jogada);
+      this.terminarTurno(decisao.marcador ? this.partida.colocarMarcador(decisao.marcador) : this.partida.pularMarcador());
     });
   }
 
-  private colocarEm(posicao: Position): void {
-    const atual = this.partida.getPecaAtual();
-    if (!atual || !this.vezDeHumano()) return;
-    const jogada = new Jogada(posicao, atual.getRotacao());
-    if (!this.partida.getBoard().podeColocar(atual, jogada)) return;
-    this.jogar(jogada);
-  }
-
-  private jogar(jogada: Jogada): void {
-    const resultado = this.partida.jogar(jogada);
-    this.desenharPeca(resultado.tile);
+  private colocarPeca(jogada: Jogada): void {
+    this.partida.colocarPeca(jogada);
+    const tile = this.partida.getPecaAtual()!;
+    this.desenharPeca(tile);
     const p = jogada.position;
     this.ultima
       .clear()
-      .lineStyle(4, resultado.jogador.cor, 1)
+      .lineStyle(4, this.partida.getJogadorDaVez().cor, 1)
       .strokeRect(p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA);
     this.fantasma.clear();
-    this.mostrarPontos(resultado);
+  }
+
+  // Clique de um humano na etapa da peça.
+  private colocarEm(posicao: Position): void {
+    const atual = this.partida.getPecaAtual();
+    if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
+    const jogada = new Jogada(posicao, atual.getRotacao());
+    if (!this.partida.getBoard().podeColocar(atual, jogada)) return;
+    this.colocarPeca(jogada);
+
+    const regioes = this.partida.regioesParaMarcador();
+    if (regioes.length === 0) {
+      // Nenhuma região aceita marcador: o turno termina sem perguntar.
+      this.terminarTurno(this.partida.pularMarcador());
+      return;
+    }
+    const posicaoDaPeca = atual.getPosicao()!;
+    this.opcoes = atual
+      .getRegioes()
+      .filter((r) => regioes.includes(r.id))
+      .map((r) => {
+        const [u, v] = ancoraDaRegiao(r);
+        return { regiaoId: r.id, x: (posicaoDaPeca.x + u) * TAMANHO_PECA, y: (posicaoDaPeca.y + v) * TAMANHO_PECA };
+      });
+    this.atualizar();
+  }
+
+  // Clique de um humano na etapa do marcador: escolhe a região mais próxima do clique.
+  private escolherOpcao(x: number, y: number): void {
+    if (!this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) return;
+    const opcao = this.opcaoEm(x, y);
+    if (!opcao) return;
+    this.terminarTurno(this.partida.colocarMarcador({ regiaoId: opcao.regiaoId, tipo: this.tipoEscolhido() }));
+  }
+
+  // O chefe, se o jogador pediu e ainda o tem; senão um colono (ou o chefe, se só restar ele).
+  private tipoEscolhido(): TipoDeMarcador {
+    const jogador = this.partida.getJogadorDaVez();
+    const querChefe = this.usarChefe && jogador.disponiveis(TipoDeMarcador.CHEFE) > 0;
+    return querChefe || jogador.disponiveis(TipoDeMarcador.COLONO) === 0 ? TipoDeMarcador.CHEFE : TipoDeMarcador.COLONO;
+  }
+
+  private opcaoEm(x: number, y: number): OpcaoDeMarcador | undefined {
+    return this.opcoes.find((o) => Phaser.Math.Distance.Between(x, y, o.x, o.y) <= RAIO_DA_OPCAO);
+  }
+
+  // Mostra o marcador colocado, pontua o que foi completado e passa para o próximo turno.
+  private terminarTurno(resultado: ResultadoDoTurno): void {
+    this.opcoes = [];
+    this.fantasma.clear();
+    if (resultado.marcador) {
+      this.desenharMarcadorNoTabuleiro(resultado.marcador);
+      const regiao = resultado.marcador.tile.getRegioes().find((r) => r.id === resultado.marcador!.regiaoId)!;
+      const quem = resultado.marcador.tipo === TipoDeMarcador.CHEFE ? 'o chefe' : 'um colono';
+      this.registrar(`${resultado.jogador.nome} pôs ${quem} num ${nomeDoTerreno(regiao.tipo)}.`);
+    }
+    for (const concluida of resultado.concluidas) {
+      this.registrar(descreverConclusao(concluida));
+      this.mostrarPontos(concluida);
+      concluida.devolvidos.forEach((m) => this.recolherMarcador(m));
+    }
     this.registrarDescartes(resultado.descartadas.length);
     if (this.partida.estaEncerrada()) {
       const [primeiro] = this.partida.classificacao();
@@ -179,19 +283,34 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.iniciarTurno();
   }
 
-  // Registra cada construção completada e mostra "+N" subindo sobre ela.
-  private mostrarPontos(resultado: ResultadoDaJogada): void {
-    for (const { feature, pontos } of resultado.concluidas) {
-      this.registrar(descreverConclusao(feature, pontos, resultado.jogador));
-      const posicoes = feature.getTiles().map((t) => t.getPosicao()!);
-      const cx = (posicoes.reduce((s, q) => s + q.x, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
-      const cy = (posicoes.reduce((s, q) => s + q.y, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
-      const texto = this.add
-        .text(cx, cy, `+${pontos}`, { ...estilo(30, corCss(resultado.jogador.cor), true), stroke: '#14161c', strokeThickness: 6 })
-        .setOrigin(0.5)
-        .setDepth(4);
-      this.tweens.add({ targets: texto, y: cy - 60, alpha: 0, duration: 1600, ease: 'Cubic.easeIn', onComplete: () => texto.destroy() });
-    }
+  private desenharMarcadorNoTabuleiro(m: Marcador): void {
+    const regiao = m.tile.getRegioes().find((r) => r.id === m.regiaoId)!;
+    const [u, v] = ancoraDaRegiao(regiao);
+    const p = m.tile.getPosicao()!;
+    const g = this.add.graphics().setDepth(5);
+    desenharMarcador(g, m.tipo, m.dono.cor, (p.x + u) * TAMANHO_PECA, (p.y + v) * TAMANHO_PECA, TAMANHO_PECA);
+    this.desenhosDosMarcadores.set(m, g);
+  }
+
+  // O marcador volta para a reserva: some aos poucos do tabuleiro.
+  private recolherMarcador(m: Marcador): void {
+    const g = this.desenhosDosMarcadores.get(m);
+    if (!g) return;
+    this.desenhosDosMarcadores.delete(m);
+    this.tweens.add({ targets: g, alpha: 0, delay: 500, duration: 700, onComplete: () => g.destroy() });
+  }
+
+  // "+N" subindo sobre a construção, na cor de quem pontuou (branco se foram vários).
+  private mostrarPontos({ feature, pontos, donos }: ConstrucaoConcluida): void {
+    const posicoes = feature.getTiles().map((t) => t.getPosicao()!);
+    const cx = (posicoes.reduce((s, q) => s + q.x, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
+    const cy = (posicoes.reduce((s, q) => s + q.y, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
+    const cor = donos.length === 1 ? corCss(donos[0].cor) : donos.length === 0 ? '#9aa1ad' : '#ffffff';
+    const texto = this.add
+      .text(cx, cy, donos.length ? `+${pontos}` : '0', { ...estilo(30, cor, true), stroke: '#14161c', strokeThickness: 6 })
+      .setOrigin(0.5)
+      .setDepth(6);
+    this.tweens.add({ targets: texto, y: cy - 60, alpha: 0, duration: 1600, ease: 'Cubic.easeIn', onComplete: () => texto.destroy() });
   }
 
   private registrarDescartes(quantidade: number): void {
@@ -207,9 +326,10 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   private atualizar(): void {
     this.destaques.clear();
+    this.camadaDeOpcoes.clear();
     const atual = this.partida.getPecaAtual();
-    // Na vez da CPU, os destaques somem: não é o humano quem escolhe.
-    if (atual && this.vezDeHumano()) {
+    // Só na vez de um humano: na vez da CPU, não é ele quem escolhe.
+    if (atual && this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) {
       const validas = new Set(this.posicoesValidasNaRotacao(atual).map((p) => p.chave()));
       for (const p of this.partida.getBoard().posicoesDisponiveis()) {
         const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
@@ -220,6 +340,11 @@ export class CenaTabuleiro extends Phaser.Scene {
           this.destaques.lineStyle(1, COR_DISPONIVEL, 0.6).strokeRect(x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8);
         }
       }
+    }
+    const cor = this.partida.estaEncerrada() ? 0xffffff : this.partida.getJogadorDaVez().cor;
+    for (const o of this.opcoes) {
+      this.camadaDeOpcoes.fillStyle(cor, 0.3).fillCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
+      this.camadaDeOpcoes.lineStyle(3, cor, 1).strokeCircle(o.x, o.y, RAIO_DA_OPCAO - 2);
     }
     this.emitirEstado();
   }
@@ -276,12 +401,17 @@ export class CenaTabuleiro extends Phaser.Scene {
         }
         return;
       }
-      this.mostrarFantasma(naAreaDoTabuleiro(p) ? this.posicaoSobPonteiro(p) : null);
+      this.mostrarFantasma(naAreaDoTabuleiro(p) ? p : null);
     });
 
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (this.inicioDoToque && !this.arrastando && naAreaDoTabuleiro(p)) {
-        this.colocarEm(this.posicaoSobPonteiro(p));
+        if (this.partida.getFase() === FaseDaPartida.COLOCAR_MARCADOR) {
+          const mundo = this.cameras.main.getWorldPoint(p.x, p.y);
+          this.escolherOpcao(mundo.x, mundo.y);
+        } else {
+          this.colocarEm(this.posicaoSobPonteiro(p));
+        }
       }
       this.inicioDoToque = null;
       this.arrastando = false;
@@ -293,15 +423,29 @@ export class CenaTabuleiro extends Phaser.Scene {
     });
 
     this.input.keyboard?.on('keydown-R', () => this.girar());
+    this.input.keyboard?.on('keydown-E', () => this.alternarChefe());
+    this.input.keyboard?.on('keydown-SPACE', () => this.pularMarcador());
     this.input.keyboard?.on('keydown-C', () => this.centralizar());
     this.input.keyboard?.on('keydown-ESC', () => this.voltarAoMenu());
   }
 
-  // Prévia da peça atual sob o ponteiro, só na vez de um humano e onde ela encaixa.
-  private mostrarFantasma(posicao: Position | null): void {
+  // Prévia sob o ponteiro, só na vez de um humano: a peça onde ela encaixa,
+  // ou o marcador sobre a região escolhida.
+  private mostrarFantasma(ponteiro: Phaser.Input.Pointer | null): void {
     this.fantasma.clear();
     const atual = this.partida.getPecaAtual();
-    if (!posicao || !atual || !this.vezDeHumano()) return;
+    if (!ponteiro || !atual) return;
+
+    if (this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) {
+      const mundo = this.cameras.main.getWorldPoint(ponteiro.x, ponteiro.y);
+      const opcao = this.opcaoEm(mundo.x, mundo.y);
+      if (!opcao) return;
+      const cor = this.partida.getJogadorDaVez().cor;
+      desenharMarcador(this.fantasma, this.tipoEscolhido(), cor, opcao.x, opcao.y, TAMANHO_PECA);
+      return;
+    }
+    if (!this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
+    const posicao = this.posicaoSobPonteiro(ponteiro);
     if (!this.partida.getBoard().podeColocar(atual, new Jogada(posicao, atual.getRotacao()))) return;
     desenharTile(this.fantasma, atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
   }

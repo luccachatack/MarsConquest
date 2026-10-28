@@ -83,7 +83,7 @@ export class CenaPreparacao extends Phaser.Scene {
       .text(
         LARGURA / 2,
         650,
-        'Quem completa um habitat ou duto ganha os pontos dele. Os jogadores jogam na ordem da lista.',
+        'Cada jogador tem 6 colonos e 1 chefe, que vale por dois. Os jogadores jogam na ordem da lista.',
         estilo(13, COR_TEXTO_FRACO),
       )
       .setOrigin(0.5);

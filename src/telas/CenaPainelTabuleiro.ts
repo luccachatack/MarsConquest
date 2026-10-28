@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
-import { MAX_JOGADORES } from '../jogo/Jogador';
+import { FaseDaPartida } from '../jogo/EstadoDaPartida';
+import { MAX_JOGADORES, type Jogador } from '../jogo/Jogador';
+import { TipoDeMarcador } from '../jogo/Marcador';
 import type { Colocacao } from '../jogo/Partida';
 import { CenaTabuleiro, LARGURA_TABULEIRO, type EstadoDoTabuleiro } from './CenaTabuleiro';
+import { desenharMarcador } from './desenharMarcador';
 import { desenharTile } from './desenharTile';
 import {
   CENAS,
@@ -20,27 +23,38 @@ const X0 = LARGURA_TABULEIRO;
 const LARGURA = 1280 - LARGURA_TABULEIRO;
 const MARGEM = 24;
 const LARGURA_UTIL = LARGURA - 2 * MARGEM;
-const TAMANHO_PREVIA = 110;
-const Y_PLACAR = 86;
-const ALTURA_LINHA = 34;
-const Y_PREVIA = 294;
+const TAMANHO_PREVIA = 100;
+const Y_PLACAR = 84;
+const ALTURA_LINHA = 40;
+const Y_VEZ = 290;
+const Y_PREVIA = 318;
+const Y_BOTOES = 428;
 const COR_LINHA_DA_VEZ = 0x2c313d;
 
 interface LinhaDoPlacar {
   fundo: Phaser.GameObjects.Graphics;
   nome: Phaser.GameObjects.Text;
-  tipo: Phaser.GameObjects.Text;
+  detalhe: Phaser.GameObjects.Text;
   pontos: Phaser.GameObjects.Text;
+}
+
+function descreverReserva(j: Jogador): string {
+  const colonos = j.disponiveis(TipoDeMarcador.COLONO);
+  const chefe = j.disponiveis(TipoDeMarcador.CHEFE) > 0 ? 'chefe' : 'sem chefe';
+  return `${colonos} colono${colonos === 1 ? '' : 's'} · ${chefe}`;
 }
 
 // Painel fixo à direita do tabuleiro, numa cena por cima: o zoom da câmera do tabuleiro não o afeta.
 export class CenaPainelTabuleiro extends Phaser.Scene {
   private tabuleiro!: CenaTabuleiro;
+  private estado: EstadoDoTabuleiro | null = null;
   private linhas: LinhaDoPlacar[] = [];
   private textoBaralho!: Phaser.GameObjects.Text;
   private textoVez!: Phaser.GameObjects.Text;
   private previa!: Phaser.GameObjects.Graphics;
   private textoPeca!: Phaser.GameObjects.Text;
+  private rotuloA!: Phaser.GameObjects.Text;
+  private rotuloB!: Phaser.GameObjects.Text;
   private textoEventos!: Phaser.GameObjects.Text;
   // Objetos da janela de resultado, para poder fechá-la.
   private resultado: Phaser.GameObjects.GameObject[] = [];
@@ -52,6 +66,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
 
   create(): void {
     this.tabuleiro = this.scene.get(CENAS.tabuleiro) as CenaTabuleiro;
+    this.estado = null;
     this.linhas = [];
     this.resultado = [];
     this.resultadoJaMostrado = false;
@@ -64,18 +79,18 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     criarBotao(this, x, 16, 100, 32, '← Menu', () => this.tabuleiro.voltarAoMenu(), 14);
     this.textoBaralho = this.add.text(x + LARGURA_UTIL, 32, '', estilo(13, COR_TEXTO_FRACO)).setOrigin(1, 0.5);
 
-    this.add.text(x, 60, 'Placar', estilo(14, COR_TITULO, true));
+    this.add.text(x, 58, 'Placar', estilo(14, COR_TITULO, true));
     for (let i = 0; i < MAX_JOGADORES; i++) {
       const y = Y_PLACAR + i * ALTURA_LINHA;
       this.linhas.push({
         fundo: this.add.graphics(),
-        nome: this.add.text(x + 32, y + 15, '', estilo(15, COR_TEXTO, true)).setOrigin(0, 0.5),
-        tipo: this.add.text(0, y + 16, '', estilo(11, COR_TEXTO_FRACO)).setOrigin(0, 0.5),
-        pontos: this.add.text(x + LARGURA_UTIL - 12, y + 15, '', estilo(18, COR_TEXTO, true)).setOrigin(1, 0.5),
+        nome: this.add.text(x + 32, y + 12, '', estilo(15, COR_TEXTO, true)).setOrigin(0, 0.5),
+        detalhe: this.add.text(x + 32, y + 28, '', estilo(11, COR_TEXTO_FRACO)).setOrigin(0, 0.5),
+        pontos: this.add.text(x + LARGURA_UTIL - 12, y + 18, '', estilo(20, COR_TEXTO, true)).setOrigin(1, 0.5),
       });
     }
 
-    this.textoVez = this.add.text(x, 264, '', estilo(16, COR_TEXTO, true));
+    this.textoVez = this.add.text(x, Y_VEZ, '', estilo(16, COR_TEXTO, true));
     this.previa = this.add.graphics();
     this.add
       .zone(x, Y_PREVIA, TAMANHO_PREVIA, TAMANHO_PREVIA)
@@ -88,19 +103,23 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
       wordWrap: { width: LARGURA_UTIL - TAMANHO_PREVIA - 16 },
     });
 
-    criarBotao(this, x, 418, 160, 36, 'Girar (R)', () => this.tabuleiro.girar(), 14);
-    criarBotao(this, x + 172, 418, 160, 36, 'Centralizar (C)', () => this.tabuleiro.centralizar(), 14);
+    // Os dois botões mudam conforme a etapa: girar/centralizar na peça, chefe/pular no marcador.
+    const naEtapaDoMarcador = () => this.estado?.fase === FaseDaPartida.COLOCAR_MARCADOR;
+    this.rotuloA = criarBotao(this, x, Y_BOTOES, 160, 36, '', () =>
+      naEtapaDoMarcador() ? this.tabuleiro.alternarChefe() : this.tabuleiro.girar(), 14);
+    this.rotuloB = criarBotao(this, x + 172, Y_BOTOES, 160, 36, '', () =>
+      naEtapaDoMarcador() ? this.tabuleiro.pularMarcador() : this.tabuleiro.centralizar(), 14);
 
-    this.add.text(x, 468, 'Acontecimentos', estilo(14, COR_TITULO, true));
-    this.textoEventos = this.add.text(x, 490, '', {
+    this.add.text(x, 478, 'Acontecimentos', estilo(14, COR_TITULO, true));
+    this.textoEventos = this.add.text(x, 500, '', {
       ...estilo(12, COR_TEXTO_FRACO),
-      lineSpacing: 4,
+      lineSpacing: 3,
       wordWrap: { width: LARGURA_UTIL },
     });
 
     criarBotao(this, x, 640, 160, 34, 'Nova partida', () => this.tabuleiro.novaPartida(), 14);
     criarBotao(this, x + 172, 640, 160, 34, 'Jogadores', () => this.tabuleiro.trocarJogadores(), 14);
-    this.add.text(x, 690, 'Arraste: mover · Roda: zoom · Botão direito: girar', estilo(11, COR_TEXTO_FRACO));
+    this.add.text(x, 690, 'Arraste: mover · Roda: zoom · C: centralizar', estilo(11, COR_TEXTO_FRACO));
 
     this.tabuleiro.events.on('estado', this.atualizar, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.tabuleiro.events.off('estado', this.atualizar, this));
@@ -108,6 +127,7 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
   }
 
   private atualizar(estado: EstadoDoTabuleiro): void {
+    this.estado = estado;
     this.textoBaralho.setText(`Baralho: ${estado.restantes} · Descartadas: ${estado.descartadas}`);
     this.atualizarPlacar(estado);
     this.atualizarVez(estado);
@@ -125,18 +145,19 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
       const jogador = estado.jogadores[i];
       linha.fundo.clear();
       if (!jogador) {
-        [linha.nome, linha.tipo, linha.pontos].forEach((t) => t.setText(''));
+        [linha.nome, linha.detalhe, linha.pontos].forEach((t) => t.setText(''));
         return;
       }
       const y = Y_PLACAR + i * ALTURA_LINHA;
       const daVez = jogador === estado.jogadorDaVez;
       if (daVez) {
-        linha.fundo.fillStyle(COR_LINHA_DA_VEZ, 1).fillRoundedRect(x, y, LARGURA_UTIL, 30, 6);
-        linha.fundo.lineStyle(2, jogador.cor, 1).strokeRoundedRect(x, y, LARGURA_UTIL, 30, 6);
+        linha.fundo.fillStyle(COR_LINHA_DA_VEZ, 1).fillRoundedRect(x, y, LARGURA_UTIL, 36, 6);
+        linha.fundo.lineStyle(2, jogador.cor, 1).strokeRoundedRect(x, y, LARGURA_UTIL, 36, 6);
       }
-      linha.fundo.fillStyle(jogador.cor, 1).fillCircle(x + 16, y + 15, 7);
+      desenharMarcador(linha.fundo, TipoDeMarcador.COLONO, jogador.cor, x + 16, y + 22, 64);
       linha.nome.setText(jogador.nome).setColor(daVez ? COR_TEXTO : '#c9ccd3');
-      linha.tipo.setText(jogador.ehCpu() ? NOMES_DOS_TIPOS[jogador.tipo] : '').setX(linha.nome.x + linha.nome.width + 8);
+      const tipo = jogador.ehCpu() ? `${NOMES_DOS_TIPOS[jogador.tipo]} · ` : '';
+      linha.detalhe.setText(`${tipo}${descreverReserva(jogador)}`);
       linha.pontos.setText(String(jogador.getPontos()));
     });
   }
@@ -145,6 +166,10 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     const x = X0 + MARGEM;
     this.previa.clear();
     const jogador = estado.jogadorDaVez;
+    const etapaDoMarcador = estado.fase === FaseDaPartida.COLOCAR_MARCADOR && jogador && !jogador.ehCpu();
+    this.rotuloA.setText(etapaDoMarcador ? `Chefe: ${estado.usarChefe ? 'sim' : 'não'} (E)` : 'Girar (R)');
+    this.rotuloB.setText(etapaDoMarcador ? 'Pular (Espaço)' : 'Centralizar (C)');
+
     if (!jogador || !estado.atual) {
       this.textoVez.setText('Fim da partida').setColor(COR_TITULO);
       this.textoPeca.setText('Acabaram as peças.\nUse Nova partida para jogar de novo.');
@@ -158,6 +183,14 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
       this.textoPeca.setText(`${nome}\n\nO computador está escolhendo onde colocar…`);
       return;
     }
+    if (etapaDoMarcador) {
+      const chefe = jogador.disponiveis(TipoDeMarcador.CHEFE) > 0 ? '' : '\nO chefe está no tabuleiro.';
+      this.textoPeca.setText(
+        `Quer pôr um marcador? Clique num dos ${estado.regioesParaMarcador === 1 ? '' : `${estado.regioesParaMarcador} `}` +
+          `círculo${estado.regioesParaMarcador === 1 ? '' : 's'} da peça, ou pule.${chefe}`,
+      );
+      return;
+    }
     const dica =
       estado.posicoesValidasNaRotacao === 0
         ? 'Não encaixa nesta rotação: gire a peça.'
@@ -169,8 +202,8 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
   private mostrarResultado(classificacao: readonly Colocacao[]): void {
     const antes = new Set(this.children.list);
     const cx = LARGURA_TABULEIRO / 2;
-    const largura = 460;
-    const altura = 190 + classificacao.length * 40;
+    const largura = 500;
+    const altura = 200 + classificacao.length * 40;
     const topo = 360 - altura / 2;
 
     this.add.graphics().fillStyle(0x0b0c10, 0.6).fillRect(0, 0, LARGURA_TABULEIRO, this.scale.height);
@@ -187,22 +220,26 @@ export class CenaPainelTabuleiro extends Phaser.Scene {
     this.add.text(cx, topo + 34, 'Fim da partida', estilo(15, COR_TEXTO_FRACO)).setOrigin(0.5);
     this.add.text(cx, topo + 66, titulo, estilo(26, COR_TITULO, true)).setOrigin(0.5);
 
+    const esquerda = cx - largura / 2 + 36;
+    const direita = cx + largura / 2 - 36;
     classificacao.forEach(({ jogador, posicao }, i) => {
       const y = topo + 116 + i * 40;
-      const esquerda = cx - largura / 2 + 40;
       this.add.text(esquerda, y, `${posicao}º`, estilo(18, COR_TEXTO_FRACO, true)).setOrigin(0, 0.5);
-      this.add.graphics().fillStyle(jogador.cor, 1).fillCircle(esquerda + 52, y, 8);
-      this.add.text(esquerda + 70, y, jogador.nome, estilo(18, COR_TEXTO, true)).setOrigin(0, 0.5);
-      this.add
-        .text(cx + largura / 2 - 40, y, `${jogador.getPontos()} pts`, estilo(18, COR_TEXTO, true))
-        .setOrigin(1, 0.5);
+      const marca = this.add.graphics();
+      desenharMarcador(marca, TipoDeMarcador.COLONO, jogador.cor, esquerda + 52, y + 5, 80);
+      this.add.text(esquerda + 72, y, jogador.nome, estilo(18, COR_TEXTO, true)).setOrigin(0, 0.5);
+      this.add.text(direita - 90, y, `${jogador.totalDisponivel()} na reserva`, estilo(12, COR_TEXTO_FRACO)).setOrigin(1, 0.5);
+      this.add.text(direita, y, `${jogador.getPontos()} pts`, estilo(18, COR_TEXTO, true)).setOrigin(1, 0.5);
     });
+    this.add
+      .text(cx, topo + altura - 82, 'Desempate: mais marcadores na reserva.', estilo(11, COR_TEXTO_FRACO))
+      .setOrigin(0.5);
 
     const yBotoes = topo + altura - 58;
-    const esquerda = cx - largura / 2 + 20;
-    criarBotao(this, esquerda, yBotoes, 134, 38, 'Jogar de novo', () => this.tabuleiro.novaPartida(), 14);
-    criarBotao(this, esquerda + 143, yBotoes, 134, 38, 'Jogadores', () => this.tabuleiro.trocarJogadores(), 14);
-    criarBotao(this, esquerda + 286, yBotoes, 134, 38, 'Ver tabuleiro', () => this.fecharResultado(), 14);
+    const x = cx - largura / 2 + 30;
+    criarBotao(this, x, yBotoes, 140, 38, 'Jogar de novo', () => this.tabuleiro.novaPartida(), 14);
+    criarBotao(this, x + 150, yBotoes, 140, 38, 'Jogadores', () => this.tabuleiro.trocarJogadores(), 14);
+    criarBotao(this, x + 300, yBotoes, 140, 38, 'Ver tabuleiro', () => this.fecharResultado(), 14);
 
     this.resultado = this.children.list.filter((o) => !antes.has(o));
   }

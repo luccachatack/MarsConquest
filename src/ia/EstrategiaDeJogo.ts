@@ -1,50 +1,117 @@
-import type { Board } from '../jogo/Board';
+import type { Board, ConstrucaoPrevista } from '../jogo/Board';
+import { TODAS_DIRECOES } from '../jogo/Direction';
+import type { EscolhaDeMarcador } from '../jogo/EstadoDaPartida';
 import type { Jogada } from '../jogo/Jogada';
-import { TipoDeJogador } from '../jogo/Jogador';
+import { TipoDeJogador, type Jogador } from '../jogo/Jogador';
+import { donosDaMaioria, TipoDeMarcador } from '../jogo/Marcador';
 import { pontosPrevistos } from '../jogo/Pontuacao';
 import type { Tile } from '../jogo/Tile';
 import type { FuncaoAleatoria } from '../jogo/TileDeck';
-import { TODAS_DIRECOES } from '../jogo/Direction';
 
-// Strategy: como o computador escolhe onde colocar a peça.
+export interface DecisaoDoTurno {
+  readonly jogada: Jogada;
+  readonly marcador: EscolhaDeMarcador | null;
+}
+
+// Strategy: como o computador joga o turno, peça e marcador (RF26–RF28).
+// Usa só as jogadas e regiões que um humano também poderia escolher (RN10).
 export interface EstrategiaDeJogo {
   // A peça tem pelo menos uma jogada válida (as outras a Partida já descartou).
-  escolherJogada(board: Board, tile: Tile): Jogada;
+  decidir(board: Board, tile: Tile, jogador: Jogador): DecisaoDoTurno;
 }
 
 function sortear<T>(itens: readonly T[], aleatorio: FuncaoAleatoria): T {
   return itens[Math.floor(aleatorio() * itens.length)];
 }
 
-// Fácil: qualquer jogada válida.
+function tiposNaReserva(jogador: Jogador): TipoDeMarcador[] {
+  return [TipoDeMarcador.COLONO, TipoDeMarcador.CHEFE].filter((t) => jogador.disponiveis(t) > 0);
+}
+
+// Regiões da peça que aceitariam marcador se a jogada fosse feita (RN04, RN14).
+function regioesLivres(construcoes: readonly ConstrucaoPrevista[]): string[] {
+  return construcoes.filter((c) => c.marcadores.length === 0).flatMap((c) => c.regioesDaPeca);
+}
+
+// Fácil: jogada sorteada e, em metade das vezes, um marcador numa região sorteada.
 export class EstrategiaAleatoria implements EstrategiaDeJogo {
   constructor(private readonly aleatorio: FuncaoAleatoria = Math.random) {}
 
-  escolherJogada(board: Board, tile: Tile): Jogada {
-    return sortear(board.jogadasValidas(tile), this.aleatorio);
+  decidir(board: Board, tile: Tile, jogador: Jogador): DecisaoDoTurno {
+    const jogada = sortear(board.jogadasValidas(tile), this.aleatorio);
+    const regioes = regioesLivres(board.preverConstrucoes(tile, jogada));
+    const tipos = tiposNaReserva(jogador);
+    if (regioes.length === 0 || tipos.length === 0 || this.aleatorio() < 0.5) {
+      return { jogada, marcador: null };
+    }
+    return { jogada, marcador: { regiaoId: sortear(regioes, this.aleatorio), tipo: tipos[0] } };
   }
 }
 
-// Difícil: a jogada que dá mais pontos agora. No empate, a que encosta em mais peças,
-// porque deixa menos lados abertos e facilita fechar construções depois.
+// Quanto "custa" deixar um marcador preso numa construção aberta.
+const CUSTO_DO_MARCADOR: Record<TipoDeMarcador, number> = {
+  [TipoDeMarcador.COLONO]: 1.5,
+  [TipoDeMarcador.CHEFE]: 3,
+};
+const CUSTO_DA_RESERVA_BAIXA = 2;
+// Uma construção aberta vale menos que uma completa: pode nunca fechar e, aberta, vale 0.
+const PESO_DA_CONSTRUCAO_ABERTA = 0.5;
+const PESO_DOS_PONTOS_DOS_OUTROS = 0.5;
+
+// Difícil: avalia cada jogada com cada escolha de marcador e fica com a melhor.
+// Conta os pontos que ganha agora, desconta os que dá aos outros e aposta em
+// construções abertas quando o marcador compensa. No empate, a que encosta em mais peças.
 export class EstrategiaGulosa implements EstrategiaDeJogo {
   constructor(private readonly aleatorio: FuncaoAleatoria = Math.random) {}
 
-  escolherJogada(board: Board, tile: Tile): Jogada {
-    let melhores: Jogada[] = [];
+  decidir(board: Board, tile: Tile, jogador: Jogador): DecisaoDoTurno {
+    let melhores: DecisaoDoTurno[] = [];
     let melhorValor = -Infinity;
+    const tipos = tiposNaReserva(jogador);
+
     for (const jogada of board.jogadasValidas(tile)) {
-      const pontos = board.preverConclusoes(tile, jogada).reduce((soma, c) => soma + pontosPrevistos(c), 0);
+      const construcoes = board.preverConstrucoes(tile, jogada);
       const vizinhas = TODAS_DIRECOES.filter((d) => board.estaOcupada(jogada.position.vizinha(d))).length;
-      const valor = pontos * 10 + vizinhas;
-      if (valor > melhorValor) {
-        melhorValor = valor;
-        melhores = [jogada];
-      } else if (valor === melhorValor) {
-        melhores.push(jogada);
+      const opcoes: (EscolhaDeMarcador | null)[] = [null];
+      for (const regiaoId of regioesLivres(construcoes)) {
+        tipos.forEach((tipo) => opcoes.push({ regiaoId, tipo }));
+      }
+      for (const marcador of opcoes) {
+        const valor = this.avaliar(construcoes, marcador, jogador) + vizinhas * 0.01;
+        if (valor > melhorValor + 1e-9) {
+          melhorValor = valor;
+          melhores = [{ jogada, marcador }];
+        } else if (Math.abs(valor - melhorValor) <= 1e-9) {
+          melhores.push({ jogada, marcador });
+        }
       }
     }
     return sortear(melhores, this.aleatorio);
+  }
+
+  private avaliar(construcoes: readonly ConstrucaoPrevista[], escolha: EscolhaDeMarcador | null, eu: Jogador): number {
+    // Com o mesmo resultado, guarda o chefe para quando ele fizer diferença.
+    let valor = escolha?.tipo === TipoDeMarcador.CHEFE ? -0.1 : 0;
+    for (const c of construcoes) {
+      const meu = escolha && c.regioesDaPeca.includes(escolha.regiaoId) ? { dono: eu, tipo: escolha.tipo } : null;
+      const donos = donosDaMaioria(meu ? [...c.marcadores, meu] : c.marcadores);
+      const pontos = pontosPrevistos(c);
+      const outros = donos.filter((d) => d !== eu).length;
+
+      if (c.bordasAbertas === 0) {
+        // Completa agora: o marcador volta na hora, então não tem custo.
+        if (donos.includes(eu)) valor += pontos;
+        valor -= PESO_DOS_PONTOS_DOS_OUTROS * pontos * outros;
+      } else if (meu) {
+        const reservaBaixa = eu.totalDisponivel() <= 2 ? CUSTO_DA_RESERVA_BAIXA : 0;
+        valor += PESO_DA_CONSTRUCAO_ABERTA * pontos - CUSTO_DO_MARCADOR[meu.tipo] - reservaBaixa;
+      } else if (donos.includes(eu)) {
+        valor += 0.5; // aumenta uma construção minha
+      } else if (outros > 0) {
+        valor -= 0.5; // aumenta a de outro jogador
+      }
+    }
+    return valor;
   }
 }
 

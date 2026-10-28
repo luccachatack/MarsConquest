@@ -1,22 +1,36 @@
 import { Board } from './Board';
+import {
+  AGUARDANDO_PECA,
+  ENCERRADA,
+  type EscolhaDeMarcador,
+  type EstadoDaPartida,
+  type FaseDaPartida,
+  type OperacoesDaPartida,
+} from './EstadoDaPartida';
 import type { Feature } from './Feature';
 import type { Jogada } from './Jogada';
 import { MAX_JOGADORES, MIN_JOGADORES, type Jogador } from './Jogador';
+import { TipoDeMarcador, type Marcador } from './Marcador';
 import { pontosDaFeature } from './Pontuacao';
+import { Terrain } from './Terrain';
 import type { Tile } from './Tile';
 import type { TileDeck } from './TileDeck';
 
 export interface ConstrucaoConcluida {
   readonly feature: Feature;
   readonly pontos: number;
+  // Quem tinha a maioria dos marcadores e levou os pontos; vazio se não havia marcador.
+  readonly donos: readonly Jogador[];
+  // Marcadores que estavam nela e voltaram para os donos (RN07).
+  readonly devolvidos: readonly Marcador[];
 }
 
-export interface ResultadoDaJogada {
+export interface ResultadoDoTurno {
   readonly jogador: Jogador;
   readonly tile: Tile;
+  readonly marcador: Marcador | null;
   readonly concluidas: readonly ConstrucaoConcluida[];
-  readonly pontos: number;
-  // Peças compradas depois da jogada que não cabiam em lugar nenhum (RN13).
+  // Peças compradas depois do turno que não cabiam em lugar nenhum (RN13).
   readonly descartadas: readonly Tile[];
 }
 
@@ -25,15 +39,31 @@ export interface Colocacao {
   readonly posicao: number;
 }
 
-// Uma partida: jogadores em turnos, cada um coloca a peça comprada.
-// Regra provisória até existirem marcadores: quem completa a construção ganha os pontos dela.
+const TIPOS_COM_MARCADOR: ReadonlySet<Terrain> = new Set([Terrain.HABITAT, Terrain.PIPE]);
+
+// Uma partida (o Game do plano): jogadores em turnos. Cada turno tem duas etapas,
+// colocar a peça e depois, se quiser, um marcador nela; os estados controlam a ordem.
 export class Partida {
   private readonly jogadores: readonly Jogador[];
   private readonly baralho: TileDeck;
   private readonly board: Board;
+  private estado: EstadoDaPartida = AGUARDANDO_PECA;
   private vez = 0;
   private atual: Tile | undefined;
+  private concluidasNoTurno: Feature[] = [];
   private descartadas = 0;
+
+  private readonly operacoes: OperacoesDaPartida = {
+    colocarPeca: (jogada) => {
+      this.concluidasNoTurno = this.board.colocar(this.atual!, jogada);
+    },
+    colocarMarcador: (escolha) => this.executarColocacaoDoMarcador(escolha),
+    encerrarTurno: (marcador) => this.executarFimDoTurno(marcador),
+    acabaramAsPecas: () => this.atual === undefined,
+    mudarPara: (estado) => {
+      this.estado = estado;
+    },
+  };
 
   constructor(jogadores: readonly Jogador[], baralho: TileDeck) {
     if (jogadores.length < MIN_JOGADORES || jogadores.length > MAX_JOGADORES) {
@@ -47,6 +77,7 @@ export class Partida {
     this.baralho = baralho;
     this.board = new Board(baralho.getTileInicial());
     this.comprarProxima();
+    if (!this.atual) this.estado = ENCERRADA;
   }
 
   getBoard(): Board {
@@ -61,7 +92,11 @@ export class Partida {
     return this.jogadores[this.vez];
   }
 
-  // A peça que o jogador da vez deve colocar; undefined quando a partida acabou.
+  getFase(): FaseDaPartida {
+    return this.estado.fase;
+  }
+
+  // A peça do turno: a colocar, ou já colocada esperando o marcador. undefined no fim da partida.
   getPecaAtual(): Tile | undefined {
     return this.atual;
   }
@@ -75,33 +110,93 @@ export class Partida {
   }
 
   estaEncerrada(): boolean {
-    return this.atual === undefined;
+    return this.estado === ENCERRADA;
   }
 
-  // Coloca a peça atual pelo jogador da vez, dá a ele os pontos do que completou
-  // e passa a vez. Jogada inválida lança erro sem mudar nada.
-  jogar(jogada: Jogada): ResultadoDaJogada {
+  // Todos os marcadores que estão no tabuleiro agora.
+  getMarcadoresNoTabuleiro(): Marcador[] {
+    return this.board.getFeatures().flatMap((f) => [...f.getMarcadores()]);
+  }
+
+  // Etapa 1: coloca a peça atual. Jogada inválida lança erro sem mudar nada.
+  colocarPeca(jogada: Jogada): void {
+    this.estado.colocarPeca(this.operacoes, jogada);
+  }
+
+  // Regiões da peça recém-colocada que aceitam marcador: habitat ou duto cuja construção
+  // ainda não tem marcador (RN04, RN14). Vazia se o jogador não tem marcadores (RN05).
+  regioesParaMarcador(): string[] {
     const tile = this.atual;
-    if (!tile) {
-      throw new Error('A partida já acabou.');
+    if (!tile || !tile.estaPosicionado() || this.getJogadorDaVez().totalDisponivel() === 0) {
+      return [];
     }
+    return tile
+      .getRegioes()
+      .filter((r) => TIPOS_COM_MARCADOR.has(r.tipo) && !this.board.getFeatureDe(tile, r.id)!.estaOcupada())
+      .map((r) => r.id);
+  }
+
+  // Etapa 2: coloca um marcador numa região da peça e encerra o turno.
+  colocarMarcador(escolha: EscolhaDeMarcador): ResultadoDoTurno {
+    return this.estado.colocarMarcador(this.operacoes, escolha);
+  }
+
+  // Etapa 2, sem marcador: só encerra o turno.
+  pularMarcador(): ResultadoDoTurno {
+    return this.estado.pularMarcador(this.operacoes);
+  }
+
+  // Turno inteiro de uma vez, para a IA e os testes.
+  jogar(jogada: Jogada, marcador: EscolhaDeMarcador | null = null): ResultadoDoTurno {
+    this.colocarPeca(jogada);
+    return marcador ? this.colocarMarcador(marcador) : this.pularMarcador();
+  }
+
+  // Do maior para o menor placar. Desempate: mais marcadores na reserva (RN11).
+  // Quem empata nos dois divide a posição.
+  classificacao(): Colocacao[] {
+    const comparar = (a: Jogador, b: Jogador) =>
+      b.getPontos() - a.getPontos() || b.totalDisponivel() - a.totalDisponivel();
+    const ordenados = [...this.jogadores].sort(comparar);
+    return ordenados.map((jogador) => ({
+      jogador,
+      posicao: 1 + ordenados.findIndex((outro) => comparar(outro, jogador) === 0),
+    }));
+  }
+
+  private executarColocacaoDoMarcador({ regiaoId, tipo }: EscolhaDeMarcador): Marcador {
     const jogador = this.getJogadorDaVez();
-    const concluidas = this.board.colocar(tile, jogada).map((feature) => ({ feature, pontos: pontosDaFeature(feature) }));
-    const pontos = concluidas.reduce((soma, c) => soma + c.pontos, 0);
-    jogador.adicionarPontos(pontos);
+    if (!this.regioesParaMarcador().includes(regiaoId)) {
+      throw new Error('Esta região não aceita marcador.');
+    }
+    if (jogador.disponiveis(tipo) === 0) {
+      throw new Error(`${jogador.nome} não tem ${tipo === TipoDeMarcador.CHEFE ? 'o chefe' : 'colonos'} na reserva.`);
+    }
+    const tile = this.atual!;
+    const marcador: Marcador = { dono: jogador, tipo, tile, regiaoId };
+    this.board.getFeatureDe(tile, regiaoId)!.adicionarMarcador(marcador);
+    jogador.retirarMarcador(tipo);
+    return marcador;
+  }
+
+  // Pontua o que a peça completou (depois do marcador, que também conta),
+  // devolve os marcadores dessas construções, passa a vez e compra a próxima peça.
+  private executarFimDoTurno(marcador: Marcador | null): ResultadoDoTurno {
+    const jogador = this.getJogadorDaVez();
+    const tile = this.atual!;
+    const concluidas = this.concluidasNoTurno.map((feature) => {
+      const pontos = pontosDaFeature(feature);
+      const donos = feature.donos();
+      donos.forEach((d) => d.adicionarPontos(pontos));
+      const devolvidos = feature.removerMarcadores();
+      devolvidos.forEach((m) => m.dono.devolverMarcador(m.tipo));
+      return { feature, pontos, donos, devolvidos };
+    });
+    this.concluidasNoTurno = [];
 
     this.vez = (this.vez + 1) % this.jogadores.length;
     const descartadas = this.comprarProxima();
-    return { jogador, tile, concluidas, pontos, descartadas };
-  }
-
-  // Do maior para o menor placar; empatados dividem a posição.
-  classificacao(): Colocacao[] {
-    const ordenados = [...this.jogadores].sort((a, b) => b.getPontos() - a.getPontos());
-    return ordenados.map((jogador) => ({
-      jogador,
-      posicao: 1 + ordenados.findIndex((outro) => outro.getPontos() === jogador.getPontos()),
-    }));
+    return { jogador, tile, marcador, concluidas, descartadas };
   }
 
   // Compra até achar uma peça que cabe; as que não cabem são descartadas (RN13).

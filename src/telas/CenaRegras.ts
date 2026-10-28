@@ -11,10 +11,16 @@ const COMO_JOGAR: [string, string][] = [
     '1. Compre a peça do topo do baralho.\n' +
       '2. Gire a peça e coloque-a encostada em pelo menos uma peça da mesa.\n' +
       '3. Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto, solo com solo e escotilha com escotilha.\n' +
-      '4. Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
+      '4. Se quiser, ponha um colono ou o chefe num habitat ou duto dessa peça.\n' +
+      '5. Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
   ],
-  ['Quem pontua', 'Quem coloca a peça que completa um habitat ou duto ganha os pontos dele, na hora. Regra provisória até os marcadores serem definidos.'],
-  ['Fim da partida', 'A partida termina quando o baralho acaba.'],
+  [
+    'Colonos e chefe',
+    'Cada jogador tem 6 colonos e 1 chefe. Só dá para marcar uma construção que ainda não tem ninguém. ' +
+      'Quando ela fica completa, quem tem mais força nela (colono 1, chefe 2) ganha os pontos; no empate, todos ganham. ' +
+      'Os marcadores voltam para a reserva. Construção completa sem marcador não dá pontos.',
+  ],
+  ['Fim da partida', 'Quando o baralho acaba. Vence quem tiver mais pontos; no empate, quem tiver mais marcadores na reserva.'],
 ];
 
 // Nenhuma peça do catálogo é só solo; esta existe apenas para a ilustração.

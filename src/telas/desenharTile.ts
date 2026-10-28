@@ -60,6 +60,14 @@ function posicaoDoPonto(p: number): Ponto {
   return interpolar(a, b, ((p % 3) + 0.5) / 3);
 }
 
+// Onde fica o marcador de uma região, em unidades da peça: a média dos pontos de borda,
+// puxada para o centro. Regiões que atravessam a peça ficam no centro.
+export function ancoraDaRegiao(r: Regiao): Ponto {
+  const soma = r.pontos.map(posicaoDoPonto).reduce((a, b) => [a[0] + b[0], a[1] + b[1]] as Ponto, [0, 0] as Ponto);
+  const media = interpolar([0, 0], soma, 1 / r.pontos.length);
+  return interpolar(CENTRO, media, 0.55);
+}
+
 function ladosDaRegiao(r: Regiao): Direction[] {
   return TODAS_DIRECOES.filter((d) => r.pontos.some((p) => ladoDoPonto(p) === d));
 }
