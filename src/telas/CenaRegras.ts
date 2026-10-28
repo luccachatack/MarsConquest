@@ -5,7 +5,7 @@ import { CENAS, COR_PAINEL, COR_TEXTO, COR_TEXTO_FRACO, COR_TITULO, criarCabecal
 
 const COMO_JOGAR: [string, string][] = [
   ['Objetivo', 'Construir a melhor colônia em Marte. Quem tiver mais pontos no fim da partida vence.'],
-  ['Preparação', 'De 2 a 5 jogadores. A peça inicial (estufa com duto) fica no centro da mesa; as outras 57 peças formam o baralho, embaralhado.'],
+  ['Preparação', 'De 2 a 5 jogadores. A peça inicial (estufa com duto) fica no centro da mesa; as outras 71 peças formam o baralho, embaralhado.'],
   [
     'Seu turno',
     '1. Compre a peça do topo do baralho.\n' +

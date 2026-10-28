@@ -23,12 +23,12 @@ export const ID_TILE_INICIAL = 'estufa-duto';
 
 export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
   // Estufas
-  entrada('estufa', 2, [
+  entrada('estufa', 4, [
     { id: 'e1', tipo: GREENHOUSE, pontos: [] },
     { id: 's1', tipo: SOIL, pontos: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
   ]),
   // Um duto ao sul chega à estufa.
-  entrada('estufa-duto', 3, [
+  entrada('estufa-duto', 2, [
     { id: 'e1', tipo: GREENHOUSE, pontos: [] },
     { id: 'd1', tipo: PIPE, pontos: [7] },
     { id: 's1', tipo: SOIL, pontos: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11] },
@@ -47,13 +47,13 @@ export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
     { id: 's1', tipo: SOIL, pontos: [6, 7, 8], habitatsAdjacentes: ['h1'] },
   ]),
   // Duto ao sul que entra no habitat por um portão e termina nele.
-  entrada('habitat-tres-lados-duto', 2, [
+  entrada('habitat-tres-lados-duto', 1, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5, 9, 10, 11] },
     { id: 'd1', tipo: PIPE, pontos: [7] },
     { id: 's1', tipo: SOIL, pontos: [6], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [8], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitat-tres-lados-duto-cristal', 1, [
+  entrada('habitat-tres-lados-duto-cristal', 2, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5, 9, 10, 11], cristal: true },
     { id: 'd1', tipo: PIPE, pontos: [7] },
     { id: 's1', tipo: SOIL, pontos: [6], habitatsAdjacentes: ['h1'] },
@@ -65,18 +65,18 @@ export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5] },
     { id: 's1', tipo: SOIL, pontos: [6, 7, 8, 9, 10, 11], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitat-canto-cristal', 1, [
+  entrada('habitat-canto-cristal', 2, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5], cristal: true },
     { id: 's1', tipo: SOIL, pontos: [6, 7, 8, 9, 10, 11], habitatsAdjacentes: ['h1'] },
   ]),
   // Duto em curva do sul ao oeste, isolando o canto sudoeste.
-  entrada('habitat-canto-duto', 2, [
+  entrada('habitat-canto-duto', 3, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5] },
     { id: 'd1', tipo: PIPE, pontos: [7, 10] },
     { id: 's1', tipo: SOIL, pontos: [8, 9] },
     { id: 's2', tipo: SOIL, pontos: [6, 11], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitat-canto-duto-cristal', 1, [
+  entrada('habitat-canto-duto-cristal', 2, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 3, 4, 5], cristal: true },
     { id: 'd1', tipo: PIPE, pontos: [7, 10] },
     { id: 's1', tipo: SOIL, pontos: [8, 9] },
@@ -85,17 +85,17 @@ export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
 
   // Habitats em lados opostos ou vizinhos
   // Um corredor liga o norte ao sul e separa o solo em dois.
-  entrada('habitat-ponte', 2, [
+  entrada('habitat-ponte', 1, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 6, 7, 8] },
     { id: 's1', tipo: SOIL, pontos: [3, 4, 5], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [9, 10, 11], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitat-ponte-cristal', 1, [
+  entrada('habitat-ponte-cristal', 2, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2, 6, 7, 8], cristal: true },
     { id: 's1', tipo: SOIL, pontos: [3, 4, 5], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [9, 10, 11], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitats-opostos', 2, [
+  entrada('habitats-opostos', 3, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 'h2', tipo: HABITAT, pontos: [6, 7, 8] },
     { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 9, 10, 11], habitatsAdjacentes: ['h1', 'h2'] },
@@ -107,32 +107,32 @@ export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
   ]),
 
   // Habitat em um lado (norte)
-  entrada('habitat-lado', 4, [
+  entrada('habitat-lado', 5, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6, 7, 8, 9, 10, 11], habitatsAdjacentes: ['h1'] },
   ]),
-  entrada('habitat-lado-duto-reto', 3, [
+  entrada('habitat-lado-duto-reto', 4, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 'd1', tipo: PIPE, pontos: [4, 10] },
     { id: 's1', tipo: SOIL, pontos: [3, 11], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [5, 6, 7, 8, 9] },
   ]),
   // Duto em curva do leste ao sul, isolando o canto sudeste.
-  entrada('habitat-lado-curva-leste', 1, [
+  entrada('habitat-lado-curva-leste', 3, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 'd1', tipo: PIPE, pontos: [4, 7] },
     { id: 's1', tipo: SOIL, pontos: [3, 8, 9, 10, 11], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [5, 6] },
   ]),
   // Duto em curva do sul ao oeste, isolando o canto sudoeste.
-  entrada('habitat-lado-curva-oeste', 1, [
+  entrada('habitat-lado-curva-oeste', 3, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 'd1', tipo: PIPE, pontos: [7, 10] },
     { id: 's1', tipo: SOIL, pontos: [3, 4, 5, 6, 11], habitatsAdjacentes: ['h1'] },
     { id: 's2', tipo: SOIL, pontos: [8, 9] },
   ]),
   // Dutos a leste, sul e oeste terminam numa bomba central.
-  entrada('habitat-lado-juncao', 2, [
+  entrada('habitat-lado-juncao', 3, [
     { id: 'h1', tipo: HABITAT, pontos: [0, 1, 2] },
     { id: 'd1', tipo: PIPE, pontos: [4] },
     { id: 'd2', tipo: PIPE, pontos: [7] },
@@ -143,12 +143,12 @@ export const CATALOGO_DE_TILES: readonly EntradaCatalogo[] = [
   ]),
 
   // Só dutos
-  entrada('duto-reto', 7, [
+  entrada('duto-reto', 8, [
     { id: 'd1', tipo: PIPE, pontos: [4, 10] },
     { id: 's1', tipo: SOIL, pontos: [11, 0, 1, 2, 3] },
     { id: 's2', tipo: SOIL, pontos: [5, 6, 7, 8, 9] },
   ]),
-  entrada('duto-curva', 8, [
+  entrada('duto-curva', 9, [
     { id: 'd1', tipo: PIPE, pontos: [7, 10] },
     { id: 's1', tipo: SOIL, pontos: [8, 9] },
     { id: 's2', tipo: SOIL, pontos: [11, 0, 1, 2, 3, 4, 5, 6] },

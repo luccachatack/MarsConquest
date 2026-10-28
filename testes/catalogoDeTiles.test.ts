@@ -90,9 +90,9 @@ describe('catálogo de peças', () => {
     }
   });
 
-  it('a soma das quantidades é 58', () => {
+  it('a soma das quantidades é 72', () => {
     const total = CATALOGO_DE_TILES.reduce((soma, e) => soma + e.quantidade, 0);
-    expect(total).toBe(58);
+    expect(total).toBe(72);
   });
 
   it('ID_TILE_INICIAL existe no catálogo', () => {
