@@ -3,7 +3,7 @@ import type { EntradaCatalogo } from './EntradaCatalogo';
 import type { DadosRegiao } from './Regiao';
 import { Terrain } from './Terrain';
 
-// Catálogo das peças de Colônia Marte: só dados. Adicionar peças ou uma expansão
+// Catálogo das peças de Mars Conquest: só dados. Adicionar peças ou uma expansão
 // é adicionar entradas aqui, sem mudar classes (RNF05).
 //
 // Pontos de borda (rotação 0):      Lados válidos:

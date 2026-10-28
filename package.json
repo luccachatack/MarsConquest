@@ -1,9 +1,9 @@
 {
-  "name": "carcassonne-academico",
+  "name": "mars-conquest",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Projeto acadêmico de uma versão digital local de Carcassonne.",
+  "description": "Mars Conquest: jogo digital local de colocação de peças, projeto acadêmico de Projeto de Software.",
   "engines": {
     "node": ">=24.21.0 <25",
     "npm": ">=11.19.0 <12"

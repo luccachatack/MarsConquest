@@ -1,4 +1,4 @@
-# Colônia Marte — Projeto acadêmico
+# Mars Conquest — Projeto acadêmico
 
 Trabalho da disciplina de Projeto de Software: um jogo digital local e original de colocar peças, em que os jogadores constroem uma base em Marte com habitats, dutos, estufas e solo. O desenvolvimento será feito aos poucos, usando **TypeScript** para as classes e regras e **Phaser** para a interface.
 
@@ -212,4 +212,4 @@ Quando houver uma versão jogável, esta seção terá o comando correto para in
 - Pedro Sixel
 - Vitor Lemos
 
-Colônia Marte é um jogo original do gênero de colocação de peças, com tema, catálogo de peças e regras próprios. Os integrantes acima são responsáveis por esta implementação acadêmica.
+Mars Conquest é um jogo original do gênero de colocação de peças, com tema, catálogo de peças e regras próprios. Os integrantes acima são responsáveis por esta implementação acadêmica.

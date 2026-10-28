@@ -16,7 +16,7 @@ export class CenaMenu extends Phaser.Scene {
     this.desenharPlaneta();
     desenharFaixaDeColonia(this, 60, 600, 64);
 
-    this.add.text(LARGURA / 2, 150, 'COLÔNIA MARTE', estilo(64, COR_TITULO, true)).setOrigin(0.5);
+    this.add.text(LARGURA / 2, 150, 'MARS CONQUEST', estilo(64, COR_TITULO, true)).setOrigin(0.5);
     this.add
       .text(LARGURA / 2, 214, 'Construa uma base em Marte, peça por peça.', estilo(18, COR_TEXTO_FRACO))
       .setOrigin(0.5);

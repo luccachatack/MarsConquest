@@ -12,7 +12,7 @@ export class CenaCreditos extends Phaser.Scene {
     criarCabecalho(this, 'Créditos');
     const cx = 640;
 
-    this.add.text(cx, 130, 'COLÔNIA MARTE', estilo(40, COR_TITULO, true)).setOrigin(0.5);
+    this.add.text(cx, 130, 'MARS CONQUEST', estilo(40, COR_TITULO, true)).setOrigin(0.5);
     this.add.text(cx, 176, 'Jogo original de colocação de peças', estilo(16, COR_TEXTO_FRACO)).setOrigin(0.5);
     this.add.text(cx, 200, 'Projeto acadêmico · disciplina de Projeto de Software', estilo(16, COR_TEXTO_FRACO)).setOrigin(0.5);
 
