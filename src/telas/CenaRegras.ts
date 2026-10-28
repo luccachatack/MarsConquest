@@ -13,7 +13,7 @@ const COMO_JOGAR: [string, string][] = [
       '3. Todos os lados que se tocam precisam combinar: habitat com habitat, duto com duto, solo com solo e escotilha com escotilha.\n' +
       '4. Se a peça não couber em lugar nenhum, ela é descartada e você compra outra.',
   ],
-  ['Marcadores', 'Regras em definição.'],
+  ['Quem pontua', 'Quem coloca a peça que completa um habitat ou duto ganha os pontos dele, na hora. Regra provisória até os marcadores serem definidos.'],
   ['Fim da partida', 'A partida termina quando o baralho acaba.'],
 ];
 

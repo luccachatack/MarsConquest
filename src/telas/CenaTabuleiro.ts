@@ -1,15 +1,17 @@
 import Phaser from 'phaser';
-import { Board } from '../jogo/Board';
+import { estrategiaPara, type EstrategiaDeJogo } from '../ia/EstrategiaDeJogo';
 import { CATALOGO_DE_TILES, ID_TILE_INICIAL } from '../jogo/catalogoDeTiles';
 import type { Feature } from '../jogo/Feature';
 import { Jogada } from '../jogo/Jogada';
+import { Jogador } from '../jogo/Jogador';
+import { Partida, type Colocacao, type ResultadoDaJogada } from '../jogo/Partida';
 import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
-import type { TileDeck } from '../jogo/TileDeck';
 import { TileFactory } from '../jogo/TileFactory';
+import type { DadosDaPartida } from './CenaPreparacao';
 import { desenharTile } from './desenharTile';
-import { CENAS, COR_DESTAQUE, nomeDaPeca } from './ui';
+import { CENAS, corCss, estilo, nomeDaPeca } from './ui';
 
 export const TAMANHO_PECA = 96;
 // Largura da área do tabuleiro; à direita fica o painel (CenaPainelTabuleiro).
@@ -18,32 +20,38 @@ export const LARGURA_TABULEIRO = 900;
 const COR_VALIDA = 0x5fd38d;
 const COR_DISPONIVEL = 0x5d6878;
 const DISTANCIA_PARA_ARRASTAR = 6;
+// Pausa antes da jogada do computador, para dar tempo de ver o que acontece.
+const ESPERA_DA_CPU_MS = 700;
+const MAXIMO_DE_EVENTOS = 5;
 
 export interface EstadoDoTabuleiro {
+  readonly jogadores: readonly Jogador[];
+  // undefined quando a partida acabou.
+  readonly jogadorDaVez: Jogador | undefined;
   readonly atual: Tile | undefined;
   readonly restantes: number;
   readonly colocadas: number;
   readonly descartadas: number;
   readonly posicoesValidasNaRotacao: number;
   readonly eventos: readonly string[];
+  // Preenchida só no fim da partida.
+  readonly classificacao: readonly Colocacao[] | null;
 }
 
-function descreverConclusao(f: Feature): string {
+function descreverConclusao(f: Feature, pontos: number, jogador: Jogador): string {
   const pecas = f.quantidadeDeTiles();
   if (f.tipo === Terrain.HABITAT) {
     const cristais = f.quantidadeDeCristais();
-    return `Habitat fechado com ${pecas} peças${cristais ? ` e ${cristais} cristal(is)` : ''}.`;
+    return `${jogador.nome} fechou um habitat de ${pecas} peças${cristais ? ` com ${cristais} cristal(is)` : ''}: +${pontos}.`;
   }
-  return `Duto completo com ${pecas} peças.`;
+  return `${jogador.nome} completou um duto de ${pecas} peças: +${pontos}.`;
 }
 
-// Modo de teste da fase 2: uma pessoa coloca as peças do baralho, uma por vez.
-// Ainda não há jogadores, turnos, marcadores nem pontuação (fases 3 e 4).
+// Partida de verdade: jogadores humanos e CPUs se revezam colocando peças.
 export class CenaTabuleiro extends Phaser.Scene {
-  private baralho!: TileDeck;
-  private board!: Board;
-  private atual: Tile | undefined;
-  private descartadas = 0;
+  private dados!: DadosDaPartida;
+  private partida!: Partida;
+  private estrategias = new Map<Jogador, EstrategiaDeJogo>();
   private eventos: string[] = [];
 
   private destaques!: Phaser.GameObjects.Graphics;
@@ -56,34 +64,41 @@ export class CenaTabuleiro extends Phaser.Scene {
     super(CENAS.tabuleiro);
   }
 
+  init(dados: DadosDaPartida): void {
+    this.dados = dados;
+  }
+
   create(): void {
-    this.descartadas = 0;
+    const jogadores = this.dados.jogadores.map((j) => new Jogador(j.nome, j.tipo, j.cor));
+    const baralho = new TileFactory().criarBaralho(CATALOGO_DE_TILES, ID_TILE_INICIAL);
+    this.partida = new Partida(jogadores, baralho);
+    this.estrategias = new Map(jogadores.filter((j) => j.ehCpu()).map((j) => [j, estrategiaPara(j.tipo)]));
     this.eventos = [];
-    this.baralho = new TileFactory().criarBaralho(CATALOGO_DE_TILES, ID_TILE_INICIAL);
-    this.board = new Board(this.baralho.getTileInicial());
 
     const camera = this.cameras.main;
     camera.setViewport(0, 0, LARGURA_TABULEIRO, this.scale.height);
     this.centralizar();
 
     this.desenharGrade();
-    this.desenharPeca(this.baralho.getTileInicial());
-    // Camadas: peças (0) < destaques < prévia < contorno da última peça.
+    this.desenharPeca(baralho.getTileInicial());
+    // Camadas: peças (0) < destaques < prévia < contorno da última peça < textos de pontos.
     this.destaques = this.add.graphics().setDepth(1);
     this.fantasma = this.add.graphics().setAlpha(0.6).setDepth(2);
     this.ultima = this.add.graphics().setDepth(3);
 
     this.configurarEntrada();
     this.scene.launch(CENAS.painelTabuleiro);
-    this.registrar('A peça inicial está no centro. Coloque a próxima encostada nela.');
-    this.proximaPeca();
+    this.registrar(`A peça inicial está no centro. ${this.partida.getJogadorDaVez().nome} começa.`);
+    this.registrarDescartes(this.partida.quantidadeDeDescartadas());
+    this.iniciarTurno();
   }
 
   // Chamados pelo painel.
 
   girar(): void {
-    if (!this.atual) return;
-    this.atual.rotacionar();
+    const atual = this.partida.getPecaAtual();
+    if (!atual || !this.vezDeHumano()) return;
+    atual.rotacionar();
     this.fantasma.clear();
     this.atualizar();
   }
@@ -92,8 +107,14 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.cameras.main.setZoom(1).centerOn(TAMANHO_PECA / 2, TAMANHO_PECA / 2);
   }
 
+  // Mesmos jogadores, baralho novo.
   novaPartida(): void {
-    this.scene.restart();
+    this.scene.restart(this.dados);
+  }
+
+  trocarJogadores(): void {
+    this.scene.stop(CENAS.painelTabuleiro);
+    this.scene.start(CENAS.preparacao);
   }
 
   voltarAoMenu(): void {
@@ -102,61 +123,95 @@ export class CenaTabuleiro extends Phaser.Scene {
   }
 
   emitirEstado(): void {
-    const atual = this.atual;
+    const atual = this.partida.getPecaAtual();
+    const encerrada = this.partida.estaEncerrada();
     const estado: EstadoDoTabuleiro = {
+      jogadores: this.partida.getJogadores(),
+      jogadorDaVez: encerrada ? undefined : this.partida.getJogadorDaVez(),
       atual,
-      restantes: this.baralho.quantidadeRestante(),
-      colocadas: this.board.quantidadeDeTiles(),
-      descartadas: this.descartadas,
+      restantes: this.partida.quantidadeRestante(),
+      colocadas: this.partida.getBoard().quantidadeDeTiles(),
+      descartadas: this.partida.quantidadeDeDescartadas(),
       posicoesValidasNaRotacao: atual ? this.posicoesValidasNaRotacao(atual).length : 0,
       eventos: this.eventos,
+      classificacao: encerrada ? this.partida.classificacao() : null,
     };
     this.events.emit('estado', estado);
   }
 
-  // Compra a próxima peça; descarta as que não cabem em lugar nenhum (RN13).
-  private proximaPeca(): void {
-    this.atual = this.baralho.comprarTile();
-    while (this.atual && this.board.jogadasValidas(this.atual).length === 0) {
-      this.descartadas++;
-      this.registrar(`Peça "${nomeDaPeca(this.atual.getDefinicao().id)}" descartada: não cabe em lugar nenhum.`);
-      this.atual = this.baralho.comprarTile();
-    }
-    if (!this.atual) {
-      this.registrar(`Acabaram as peças: ${this.board.quantidadeDeTiles()} colocadas, ${this.descartadas} descartadas.`);
-    }
+  private vezDeHumano(): boolean {
+    return !this.partida.estaEncerrada() && !this.partida.getJogadorDaVez().ehCpu();
+  }
+
+  private iniciarTurno(): void {
     this.atualizar();
+    if (this.partida.estaEncerrada() || this.vezDeHumano()) return;
+    this.time.delayedCall(ESPERA_DA_CPU_MS, () => {
+      const jogador = this.partida.getJogadorDaVez();
+      const jogada = this.estrategias.get(jogador)!.escolherJogada(this.partida.getBoard(), this.partida.getPecaAtual()!);
+      this.jogar(jogada);
+    });
   }
 
   private colocarEm(posicao: Position): void {
-    if (!this.atual) return;
-    const jogada = new Jogada(posicao, this.atual.getRotacao());
-    if (!this.board.podeColocar(this.atual, jogada)) return;
+    const atual = this.partida.getPecaAtual();
+    if (!atual || !this.vezDeHumano()) return;
+    const jogada = new Jogada(posicao, atual.getRotacao());
+    if (!this.partida.getBoard().podeColocar(atual, jogada)) return;
+    this.jogar(jogada);
+  }
 
-    const concluidas = this.board.colocar(this.atual, jogada);
-    this.desenharPeca(this.atual);
+  private jogar(jogada: Jogada): void {
+    const resultado = this.partida.jogar(jogada);
+    this.desenharPeca(resultado.tile);
+    const p = jogada.position;
     this.ultima
       .clear()
-      .lineStyle(3, COR_DESTAQUE, 1)
-      .strokeRect(posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA);
+      .lineStyle(4, resultado.jogador.cor, 1)
+      .strokeRect(p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA, TAMANHO_PECA);
     this.fantasma.clear();
-    for (const f of concluidas) {
-      this.registrar(descreverConclusao(f));
+    this.mostrarPontos(resultado);
+    this.registrarDescartes(resultado.descartadas.length);
+    if (this.partida.estaEncerrada()) {
+      const [primeiro] = this.partida.classificacao();
+      this.registrar(`Fim da partida! ${primeiro.jogador.nome} terminou em 1º lugar.`);
     }
-    this.proximaPeca();
+    this.iniciarTurno();
+  }
+
+  // Registra cada construção completada e mostra "+N" subindo sobre ela.
+  private mostrarPontos(resultado: ResultadoDaJogada): void {
+    for (const { feature, pontos } of resultado.concluidas) {
+      this.registrar(descreverConclusao(feature, pontos, resultado.jogador));
+      const posicoes = feature.getTiles().map((t) => t.getPosicao()!);
+      const cx = (posicoes.reduce((s, q) => s + q.x, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
+      const cy = (posicoes.reduce((s, q) => s + q.y, 0) / posicoes.length + 0.5) * TAMANHO_PECA;
+      const texto = this.add
+        .text(cx, cy, `+${pontos}`, { ...estilo(30, corCss(resultado.jogador.cor), true), stroke: '#14161c', strokeThickness: 6 })
+        .setOrigin(0.5)
+        .setDepth(4);
+      this.tweens.add({ targets: texto, y: cy - 60, alpha: 0, duration: 1600, ease: 'Cubic.easeIn', onComplete: () => texto.destroy() });
+    }
+  }
+
+  private registrarDescartes(quantidade: number): void {
+    if (quantidade > 0) {
+      this.registrar(`${quantidade} peça(s) descartada(s): não cabiam em lugar nenhum.`);
+    }
   }
 
   private posicoesValidasNaRotacao(tile: Tile): Position[] {
-    return this.board
-      .posicoesDisponiveis()
-      .filter((p) => this.board.podeColocar(tile, new Jogada(p, tile.getRotacao())));
+    const board = this.partida.getBoard();
+    return board.posicoesDisponiveis().filter((p) => board.podeColocar(tile, new Jogada(p, tile.getRotacao())));
   }
 
   private atualizar(): void {
     this.destaques.clear();
-    if (this.atual) {
-      const validas = new Set(this.posicoesValidasNaRotacao(this.atual).map((p) => p.chave()));
-      for (const p of this.board.posicoesDisponiveis()) {
+    const atual = this.partida.getPecaAtual();
+    // Na vez da CPU, os destaques somem: não é o humano quem escolhe.
+    if (atual && this.vezDeHumano()) {
+      const validas = new Set(this.posicoesValidasNaRotacao(atual).map((p) => p.chave()));
+      for (const p of this.partida.getBoard().posicoesDisponiveis()) {
         const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
         if (validas.has(p.chave())) {
           this.destaques.fillStyle(COR_VALIDA, 0.18).fillRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
@@ -170,7 +225,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   }
 
   private registrar(texto: string): void {
-    this.eventos = [texto, ...this.eventos].slice(0, 5);
+    this.eventos = [texto, ...this.eventos].slice(0, MAXIMO_DE_EVENTOS);
   }
 
   private desenharPeca(tile: Tile): void {
@@ -242,11 +297,12 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.voltarAoMenu());
   }
 
-  // Prévia da peça atual sob o ponteiro, só onde ela encaixa na rotação atual.
+  // Prévia da peça atual sob o ponteiro, só na vez de um humano e onde ela encaixa.
   private mostrarFantasma(posicao: Position | null): void {
     this.fantasma.clear();
-    if (!posicao || !this.atual) return;
-    if (!this.board.podeColocar(this.atual, new Jogada(posicao, this.atual.getRotacao()))) return;
-    desenharTile(this.fantasma, this.atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
+    const atual = this.partida.getPecaAtual();
+    if (!posicao || !atual || !this.vezDeHumano()) return;
+    if (!this.partida.getBoard().podeColocar(atual, new Jogada(posicao, atual.getRotacao()))) return;
+    desenharTile(this.fantasma, atual, posicao.x * TAMANHO_PECA, posicao.y * TAMANHO_PECA, TAMANHO_PECA);
   }
 }

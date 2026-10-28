@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CATALOGO_DE_TILES } from '../jogo/catalogoDeTiles';
 import type { DefinicaoTile } from '../jogo/DefinicaoTile';
+import { TipoDeJogador } from '../jogo/Jogador';
 import { Tile } from '../jogo/Tile';
 import { desenharTile } from './desenharTile';
 
@@ -11,9 +12,17 @@ export const CENAS = {
   pecas: 'pecas',
   regras: 'regras',
   creditos: 'creditos',
+  preparacao: 'preparacao',
   tabuleiro: 'tabuleiro',
   painelTabuleiro: 'painel-tabuleiro',
 } as const;
+
+// Uma cor por vaga de jogador, distantes das cores das peças.
+export const CORES_DOS_JOGADORES = [0x4aa8ff, 0xff6f91, 0xc6e05a, 0xb58cff, 0xffd166] as const;
+
+export function corCss(cor: number): string {
+  return `#${cor.toString(16).padStart(6, '0')}`;
+}
 
 export const FONTE = 'system-ui, "Segoe UI", sans-serif';
 export const COR_TEXTO = '#e8e9ec';
@@ -28,6 +37,12 @@ const COR_BOTAO_SOBRE = 0x4a5162;
 export function estilo(tamanho: number, cor = COR_TEXTO, negrito = false): Phaser.Types.GameObjects.Text.TextStyle {
   return { fontFamily: FONTE, fontSize: `${tamanho}px`, color: cor, fontStyle: negrito ? 'bold' : 'normal', resolution: 2 };
 }
+
+export const NOMES_DOS_TIPOS: Record<TipoDeJogador, string> = {
+  [TipoDeJogador.HUMANO]: 'Humano',
+  [TipoDeJogador.CPU_FACIL]: 'CPU fácil',
+  [TipoDeJogador.CPU_DIFICIL]: 'CPU difícil',
+};
 
 export function nomeDaPeca(idDefinicao: string): string {
   return idDefinicao

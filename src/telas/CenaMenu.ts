@@ -22,7 +22,7 @@ export class CenaMenu extends Phaser.Scene {
     const largura = 300;
     const x = (LARGURA - largura) / 2;
     const opcoes: [string, () => void][] = [
-      ['Jogar', () => this.scene.start(CENAS.tabuleiro)],
+      ['Jogar', () => this.scene.start(CENAS.preparacao)],
       ['Peças', () => this.scene.start(CENAS.pecas)],
       ['Regras', () => this.scene.start(CENAS.regras)],
       ['Créditos', () => this.scene.start(CENAS.creditos)],
