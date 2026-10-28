@@ -27,6 +27,8 @@ const COR_VALIDA = 0xd99a6c;
 const COR_DISPONIVEL = 0x8a6a58;
 const COR_SEM_ENCAIXE = 0xe0614f;
 const DISTANCIA_PARA_ARRASTAR = 6;
+// Opacidade da cor de quem domina o campo, quando os campos estão à mostra.
+const ALFA_DO_DONO = 0.8;
 // Raio, em pixels do mundo, em que um clique escolhe uma região para o marcador.
 const RAIO_DA_OPCAO = 16;
 // Pausa antes da jogada do computador, para dar tempo de ver o que acontece.
@@ -523,14 +525,19 @@ export class CenaTabuleiro extends Phaser.Scene {
           for (let i = 0; i < voltas; i++) [c, l] = [R - 1 - l, c];
           return [c, l];
         };
-        const pintar = (c: number, l: number, largura: number, altura: number, cor: number, alfa: number) =>
-          g.fillStyle(cor, alfa).fillRect(p.x * TAMANHO_PECA + c * celula, p.y * TAMANHO_PECA + l * celula, largura * celula, altura * celula);
+        // O solo é escurecido antes, para a cor do jogador aparecer como ela é (amarelo sobre o laranja
+        // do solo, por exemplo, quase sumia).
+        const pintar = (c: number, l: number, largura: number, altura: number, cor: number, alfa: number) => {
+          const [x, y, w, h] = [p.x * TAMANHO_PECA + c * celula, p.y * TAMANHO_PECA + l * celula, largura * celula, altura * celula];
+          if (alfa >= ALFA_DO_DONO) g.fillStyle(0x1b100c, 0.4).fillRect(x, y, w, h);
+          g.fillStyle(cor, alfa).fillRect(x, y, w, h);
+        };
         for (const { linha, inicio, fim } of faixas) {
           if (cores.length === 1) {
             // A faixa inteira de uma vez: girada, vira uma faixa vertical ou horizontal.
             const [c0, l0] = girar(inicio, linha);
             const [c1, l1] = girar(fim, linha);
-            pintar(Math.min(c0, c1), Math.min(l0, l1), Math.abs(c1 - c0) + 1, Math.abs(l1 - l0) + 1, cores[0], 0.5);
+            pintar(Math.min(c0, c1), Math.min(l0, l1), Math.abs(c1 - c0) + 1, Math.abs(l1 - l0) + 1, cores[0], ALFA_DO_DONO);
             continue;
           }
           for (let coluna = inicio; coluna <= fim; coluna++) {
@@ -538,9 +545,10 @@ export class CenaTabuleiro extends Phaser.Scene {
             if (cores.length === 0) {
               pintar(c, l, 1, 1, 0xffffff, 0.14);
             } else {
-              // Listras diagonais contínuas de uma peça para a outra.
+              // Listras diagonais contínuas de uma peça para a outra. As coordenadas ficam negativas à
+              // esquerda e acima da peça inicial, e em JavaScript -1 % 2 é -1: o resto é ajustado.
               const faixa = Math.floor((p.x * R + c + p.y * R + l) / 5);
-              pintar(c, l, 1, 1, cores[faixa % cores.length], 0.55);
+              pintar(c, l, 1, 1, cores[((faixa % cores.length) + cores.length) % cores.length], ALFA_DO_DONO);
             }
           }
         }
