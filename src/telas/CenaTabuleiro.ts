@@ -11,25 +11,24 @@ import { Position } from '../jogo/Position';
 import { Terrain } from '../jogo/Terrain';
 import type { Tile } from '../jogo/Tile';
 import { TileFactory } from '../jogo/TileFactory';
+import type { CenaPainelTabuleiro } from './CenaPainelTabuleiro';
 import type { DadosDaPartida } from './CenaPreparacao';
 import { desenharMarcador } from './desenharMarcador';
 import { criarPeca, desenharPeca } from './desenharPeca';
 import { ancoraDaRegiao } from './desenharTile';
-import { CENAS, corCss, estilo } from './ui';
+import { CENAS, corCss, estilo, nomeDaPeca, tracejarRetangulo } from './ui';
 
 export const TAMANHO_PECA = 96;
-// Largura da área do tabuleiro; à direita fica o painel (CenaPainelTabuleiro).
-export const LARGURA_TABULEIRO = 900;
 
-const COR_VALIDA = 0x5fd38d;
-const COR_DISPONIVEL = 0x5d6878;
+const COR_FUNDO = 0x1b100c;
+const COR_VALIDA = 0xd99a6c;
+const COR_DISPONIVEL = 0x8a6a58;
 const COR_SEM_ENCAIXE = 0xe0614f;
 const DISTANCIA_PARA_ARRASTAR = 6;
 // Raio, em pixels do mundo, em que um clique escolhe uma região para o marcador.
 const RAIO_DA_OPCAO = 16;
 // Pausa antes da jogada do computador, para dar tempo de ver o que acontece.
 const ESPERA_DA_CPU_MS = 700;
-const MAXIMO_DE_EVENTOS = 5;
 
 export interface EstadoDoTabuleiro {
   readonly jogadores: readonly Jogador[];
@@ -40,12 +39,16 @@ export interface EstadoDoTabuleiro {
   readonly restantes: number;
   readonly colocadas: number;
   readonly descartadas: number;
-  // Posições onde a peça cabe em alguma rotação, e de quantos jeitos ela cabe na posição sob o mouse.
+  // Posições onde a peça cabe em alguma rotação, e de quantos jeitos ela cabe na posição escolhida
+  // (ou, sem escolha, na posição sob o mouse).
   readonly posicoesValidas: number;
   readonly rotacoesNaPosicao: number;
+  // A peça já está sobre uma casa esperando o jogador girar, voltar ou confirmar.
+  readonly pecaEscolhida: boolean;
   // Na etapa do marcador: quantas regiões da peça aceitam marcador e se o chefe está escolhido.
   readonly regioesParaMarcador: number;
   readonly usarChefe: boolean;
+  // Tudo o que aconteceu na partida, do mais antigo ao mais novo.
   readonly eventos: readonly string[];
   // Preenchida só no fim da partida.
   readonly classificacao: readonly Colocacao[] | null;
@@ -107,12 +110,15 @@ export class CenaTabuleiro extends Phaser.Scene {
   // Na etapa da peça: para cada posição (chave "x,y"), as rotações em que a peça encaixa.
   private encaixes = new Map<string, number[]>();
   private posicaoSobMouse: Position | null = null;
+  // Casa clicada na etapa da peça, antes de confirmar. A peça só vai para a Partida na confirmação.
+  private escolhida: Position | null = null;
   // Posições onde nenhuma peça que resta encaixa (chaves "x,y"); só aumentam durante a partida.
   private semEncaixe = new Set<string>();
 
   private destaques!: Phaser.GameObjects.Graphics;
   private cruzes!: Phaser.GameObjects.Graphics;
   private fantasma!: Phaser.GameObjects.Container;
+  private escolha!: Phaser.GameObjects.Container;
   private ultima!: Phaser.GameObjects.Graphics;
   private camadaDeOpcoes!: Phaser.GameObjects.Graphics;
   private inicioDoToque: { x: number; y: number } | null = null;
@@ -137,18 +143,21 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.desenhosDosMarcadores = new Map();
     this.encaixes = new Map();
     this.posicaoSobMouse = null;
+    this.escolhida = null;
     this.semEncaixe = new Set();
 
-    const camera = this.cameras.main;
-    camera.setViewport(0, 0, LARGURA_TABULEIRO, this.scale.height);
+    // O tabuleiro ocupa a tela toda; os painéis (CenaPainelTabuleiro) ficam por cima.
+    this.cameras.main.setBackgroundColor(COR_FUNDO);
     this.centralizar();
 
+    this.desenharBrilhoDoCentro();
     this.desenharGrade();
     this.desenharNoTabuleiro(baralho.getTileInicial());
     // Camadas: peças (0) < destaques < prévia < contorno da última peça < opções de marcador < marcadores < textos.
     this.destaques = this.add.graphics().setDepth(1);
     this.cruzes = this.add.graphics().setDepth(1);
     this.fantasma = this.add.container(0, 0).setAlpha(0.6).setDepth(2);
+    this.escolha = this.add.container(0, 0).setDepth(2);
     this.ultima = this.add.graphics().setDepth(3);
     this.camadaDeOpcoes = this.add.graphics().setDepth(4);
     this.tweens.add({ targets: this.camadaDeOpcoes, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
@@ -162,19 +171,56 @@ export class CenaTabuleiro extends Phaser.Scene {
 
   // Chamados pelo painel.
 
-  // Com o mouse numa posição verde, passa para a próxima rotação que encaixa ali;
-  // fora delas, gira normalmente.
+  // Com uma casa escolhida (ou o mouse sobre uma casa onde a peça cabe), passa para a próxima
+  // rotação que encaixa ali; fora delas, gira normalmente.
   girar(): void {
     const atual = this.partida.getPecaAtual();
     if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
-    const rotacoes = this.posicaoSobMouse && this.encaixes.get(this.posicaoSobMouse.chave());
+    const posicao = this.escolhida ?? this.posicaoSobMouse;
+    const rotacoes = posicao && this.encaixes.get(posicao.chave());
     if (rotacoes) {
       atual.definirRotacao(proximaRotacao(rotacoes, atual.getRotacao() + 1));
     } else {
       atual.rotacionar();
     }
-    this.desenharFantasmaDaPeca();
+    if (this.escolhida) this.desenharEscolha();
+    else this.desenharFantasmaDaPeca();
     this.emitirEstado();
+  }
+
+  // Desfaz a escolha da casa: a peça sai do tabuleiro e o jogador escolhe de novo.
+  voltar(): void {
+    if (!this.escolhida || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
+    this.escolhida = null;
+    this.escolha.removeAll(true);
+    this.emitirEstado();
+  }
+
+  // Coloca a peça na casa escolhida, na rotação atual, e passa para a etapa do marcador.
+  confirmar(): void {
+    const posicao = this.escolhida;
+    const atual = this.partida.getPecaAtual();
+    if (!posicao || !atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
+    this.escolhida = null;
+    this.escolha.removeAll(true);
+    this.encaixes = new Map();
+    this.colocarPeca(new Jogada(posicao, atual.getRotacao()));
+
+    const regioes = this.partida.regioesParaMarcador();
+    if (regioes.length === 0) {
+      // Nenhuma região aceita marcador: o turno termina sem perguntar.
+      this.terminarTurno(this.partida.pularMarcador());
+      return;
+    }
+    const posicaoDaPeca = atual.getPosicao()!;
+    this.opcoes = atual
+      .getRegioes()
+      .filter((r) => regioes.includes(r.id))
+      .map((r) => {
+        const [u, v] = ancoraDaRegiao(r);
+        return { regiaoId: r.id, x: (posicaoDaPeca.x + u) * TAMANHO_PECA, y: (posicaoDaPeca.y + v) * TAMANHO_PECA };
+      });
+    this.atualizar();
   }
 
   alternarChefe(): void {
@@ -220,7 +266,11 @@ export class CenaTabuleiro extends Phaser.Scene {
       colocadas: this.partida.getBoard().quantidadeDeTiles(),
       descartadas: this.partida.quantidadeDeDescartadas(),
       posicoesValidas: this.encaixes.size,
-      rotacoesNaPosicao: (this.posicaoSobMouse && this.encaixes.get(this.posicaoSobMouse.chave())?.length) || 0,
+      rotacoesNaPosicao: (() => {
+        const posicao = this.escolhida ?? this.posicaoSobMouse;
+        return (posicao && this.encaixes.get(posicao.chave())?.length) || 0;
+      })(),
+      pecaEscolhida: this.escolhida !== null,
       regioesParaMarcador: this.opcoes.length,
       usarChefe: this.usarChefe,
       eventos: this.eventos,
@@ -229,12 +279,23 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.events.emit('estado', estado);
   }
 
+  private painel(): CenaPainelTabuleiro {
+    return this.scene.get(CENAS.painelTabuleiro) as CenaPainelTabuleiro;
+  }
+
+  // Clique, roda e teclas não chegam ao tabuleiro quando caem num painel ou com uma janela aberta.
+  private bloqueado(p?: Phaser.Input.Pointer): boolean {
+    return this.painel().bloqueia(p?.x, p?.y);
+  }
+
   private vezDeHumano(fase: FaseDaPartida): boolean {
     return this.partida.getFase() === fase && !this.partida.getJogadorDaVez().ehCpu();
   }
 
   private iniciarTurno(): void {
     this.usarChefe = false;
+    this.escolhida = null;
+    this.escolha.removeAll(true);
     this.atualizar();
     if (this.partida.estaEncerrada() || !this.partida.getJogadorDaVez().ehCpu()) return;
     this.time.delayedCall(ESPERA_DA_CPU_MS, () => {
@@ -249,6 +310,7 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.partida.colocarPeca(jogada);
     const tile = this.partida.getPecaAtual()!;
     this.desenharNoTabuleiro(tile);
+    this.registrar(`${this.partida.getJogadorDaVez().nome} colocou ${nomeDaPeca(tile.getDefinicao().id)}.`);
     const p = jogada.position;
     this.ultima
       .clear()
@@ -257,32 +319,35 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.fantasma.removeAll(true);
   }
 
-  // Clique de um humano na etapa da peça.
+  // Clique de um humano na etapa da peça: escolhe a casa (sem colocar ainda). Clicar de novo
+  // na casa escolhida gira a peça; clicar em outra casa onde ela cabe muda a escolha.
   private colocarEm(posicao: Position): void {
     const atual = this.partida.getPecaAtual();
     if (!atual || !this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) return;
+    if (this.escolhida?.equals(posicao)) {
+      this.girar();
+      return;
+    }
     const rotacoes = this.encaixes.get(posicao.chave());
     if (!rotacoes) return;
     // Garante uma rotação que encaixa (o clique pode vir sem o mouse ter passado por ali).
     atual.definirRotacao(proximaRotacao(rotacoes, atual.getRotacao()));
-    this.encaixes = new Map();
-    this.colocarPeca(new Jogada(posicao, atual.getRotacao()));
+    this.escolhida = posicao;
+    this.fantasma.removeAll(true);
+    this.desenharEscolha();
+    this.emitirEstado();
+  }
 
-    const regioes = this.partida.regioesParaMarcador();
-    if (regioes.length === 0) {
-      // Nenhuma região aceita marcador: o turno termina sem perguntar.
-      this.terminarTurno(this.partida.pularMarcador());
-      return;
-    }
-    const posicaoDaPeca = atual.getPosicao()!;
-    this.opcoes = atual
-      .getRegioes()
-      .filter((r) => regioes.includes(r.id))
-      .map((r) => {
-        const [u, v] = ancoraDaRegiao(r);
-        return { regiaoId: r.id, x: (posicaoDaPeca.x + u) * TAMANHO_PECA, y: (posicaoDaPeca.y + v) * TAMANHO_PECA };
-      });
-    this.atualizar();
+  // A peça escolhida, opaca, com o contorno na cor do jogador.
+  private desenharEscolha(): void {
+    this.escolha.removeAll(true);
+    const atual = this.partida.getPecaAtual();
+    const p = this.escolhida;
+    if (!atual || !p) return;
+    const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
+    desenharPeca(this, this.escolha, atual, x, y, TAMANHO_PECA);
+    const contorno = this.add.graphics().lineStyle(4, this.partida.getJogadorDaVez().cor, 1).strokeRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
+    this.escolha.add(contorno);
   }
 
   // Clique de um humano na etapa do marcador: escolhe a região mais próxima do clique.
@@ -383,16 +448,16 @@ export class CenaTabuleiro extends Phaser.Scene {
     this.encaixes = new Map();
     const atual = this.partida.getPecaAtual();
     // Só na vez de um humano: na vez da CPU, não é ele quem escolhe.
-    // Verde: a peça cabe ali em alguma rotação. Cinza: não cabe de jeito nenhum.
+    // Tracejado: a peça cabe ali em alguma rotação. Contorno apagado: não cabe de jeito nenhum.
     if (atual && this.vezDeHumano(FaseDaPartida.COLOCAR_PECA)) {
       this.encaixes = this.calcularEncaixes(atual);
       for (const p of this.partida.getBoard().posicoesDisponiveis()) {
         const [x, y] = [p.x * TAMANHO_PECA, p.y * TAMANHO_PECA];
         if (this.encaixes.has(p.chave())) {
-          this.destaques.fillStyle(COR_VALIDA, 0.18).fillRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
-          this.destaques.lineStyle(2, COR_VALIDA, 0.9).strokeRect(x + 2, y + 2, TAMANHO_PECA - 4, TAMANHO_PECA - 4);
+          this.destaques.fillStyle(0xffffff, 0.04).fillRect(x, y, TAMANHO_PECA, TAMANHO_PECA);
+          tracejarRetangulo(this.destaques.lineStyle(1.5, COR_VALIDA, 0.85), x + 1, y + 1, TAMANHO_PECA - 2, TAMANHO_PECA - 2, 6);
         } else {
-          this.destaques.lineStyle(1, COR_DISPONIVEL, 0.6).strokeRect(x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8);
+          this.destaques.lineStyle(1, COR_DISPONIVEL, 0.25).strokeRect(x + 4, y + 4, TAMANHO_PECA - 8, TAMANHO_PECA - 8);
         }
       }
     }
@@ -430,7 +495,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   }
 
   private registrar(texto: string): void {
-    this.eventos = [texto, ...this.eventos].slice(0, MAXIMO_DE_EVENTOS);
+    this.eventos = [...this.eventos, texto];
   }
 
   private desenharNoTabuleiro(tile: Tile): void {
@@ -438,10 +503,17 @@ export class CenaTabuleiro extends Phaser.Scene {
     criarPeca(this, tile, p.x * TAMANHO_PECA, p.y * TAMANHO_PECA, TAMANHO_PECA);
   }
 
+  // Brilho quente no meio da tela, fixo (não acompanha a câmera).
+  private desenharBrilhoDoCentro(): void {
+    const g = this.add.graphics().setScrollFactor(0).setDepth(-1);
+    const [cx, cy] = [this.scale.width / 2, this.scale.height / 2];
+    for (let r = 520; r > 0; r -= 26) g.fillStyle(0x6b2f18, 0.022).fillCircle(cx, cy, r);
+  }
+
   // Pontos discretos marcando a grade, numa área grande em volta do centro.
   private desenharGrade(): void {
     const g = this.add.graphics();
-    g.fillStyle(0xffffff, 0.08);
+    g.fillStyle(0xffffff, 0.06);
     for (let gx = -40; gx <= 40; gx++) {
       for (let gy = -40; gy <= 40; gy++) {
         g.fillCircle(gx * TAMANHO_PECA, gy * TAMANHO_PECA, 1.5);
@@ -457,7 +529,7 @@ export class CenaTabuleiro extends Phaser.Scene {
   // Clique coloca, arrastar move a câmera, roda do mouse dá zoom, botão direito gira.
   private configurarEntrada(): void {
     this.input.mouse?.disableContextMenu();
-    const naAreaDoTabuleiro = (p: Phaser.Input.Pointer) => p.x < LARGURA_TABULEIRO;
+    const naAreaDoTabuleiro = (p: Phaser.Input.Pointer) => !this.bloqueado(p);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (!naAreaDoTabuleiro(p)) return;
@@ -497,16 +569,20 @@ export class CenaTabuleiro extends Phaser.Scene {
       this.arrastando = false;
     });
 
-    this.input.on('wheel', (_p: Phaser.Input.Pointer, _objetos: unknown, _dx: number, dy: number) => {
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _objetos: unknown, _dx: number, dy: number) => {
+      if (!naAreaDoTabuleiro(p)) return;
       const camera = this.cameras.main;
       camera.setZoom(Phaser.Math.Clamp(camera.zoom * (dy > 0 ? 0.9 : 1.1), 0.35, 2));
     });
 
-    this.input.keyboard?.on('keydown-R', () => this.girar());
-    this.input.keyboard?.on('keydown-E', () => this.alternarChefe());
-    this.input.keyboard?.on('keydown-SPACE', () => this.pularMarcador());
-    this.input.keyboard?.on('keydown-C', () => this.centralizar());
-    this.input.keyboard?.on('keydown-ESC', () => this.voltarAoMenu());
+    // Esc fica com o painel: abre e fecha o menu de opções.
+    const tecla = (nome: string, acao: () => void) => this.input.keyboard?.on(`keydown-${nome}`, () => this.bloqueado() || acao());
+    tecla('R', () => this.girar());
+    tecla('E', () => this.alternarChefe());
+    tecla('SPACE', () => this.pularMarcador());
+    tecla('ENTER', () => this.confirmar());
+    tecla('BACKSPACE', () => this.voltar());
+    tecla('C', () => this.centralizar());
   }
 
   // Prévia sob o ponteiro, só na vez de um humano: a peça onde ela encaixa,
@@ -522,6 +598,11 @@ export class CenaTabuleiro extends Phaser.Scene {
       return;
     }
 
+    // Com a casa já escolhida, o mouse não mostra prévia: a peça está sobre a casa esperando a confirmação.
+    if (this.escolhida) {
+      if (mudouDePosicao) this.emitirEstado();
+      return;
+    }
     if (this.vezDeHumano(FaseDaPartida.COLOCAR_MARCADOR)) {
       const mundo = this.cameras.main.getWorldPoint(ponteiro.x, ponteiro.y);
       const opcao = this.opcaoEm(mundo.x, mundo.y);

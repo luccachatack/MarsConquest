@@ -36,6 +36,7 @@ Na lista de arquivos do GitHub, a coluna do meio mostra a mensagem do **último 
 | --- | --- |
 | `docs/` | Documentação do trabalho: especificações das fases 1 a 3, regras de pontuação, plano de próximos passos e os PDFs de referência do grupo. |
 | `public/assets/` | Imagens do jogo servidas direto ao navegador: a arte da capa do menu (`capa-menu.png`) e a folha com a arte das peças (`pecas_spritesheet.png`). |
+| `slides/` | Imagens da apresentação da aula (diagramas etc.), mostradas pelo botão **Slides** do menu, em ordem de nome. |
 | `src/` | Código do jogo: as regras em `jogo/`, a inteligência do computador em `ia/` e as telas feitas com Phaser em `telas/`. |
 | `testes/` | Testes automatizados das regras (Vitest), um arquivo por classe ou assunto, incluindo partidas simuladas inteiras. |
 | `.gitignore` | Lista do que o Git deve ignorar, como `node_modules/`, o build em `dist/` e a pasta local `.tools/`. |
@@ -187,29 +188,41 @@ npm run dev
 
 Abra no navegador o endereço `Local` exibido pelo Vite (normalmente `http://localhost:5173/`), em vez de abrir `index.html` diretamente pelo explorador de arquivos.
 
-O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos** (`Enter` também abre **Jogar**). Em qualquer tela, o botão **← Menu** ou a tecla `Esc` volta ao menu.
+O menu tem quatro opções: **Jogar**, **Peças**, **Regras** e **Créditos** (`Enter` também abre **Jogar**). Nas outras telas, o botão **‹ Menu** ou a tecla `Esc` volta ao menu; na partida, `Esc` abre o menu de opções.
+
+No canto inferior esquerdo do menu, o botão **Slides** (ou a tecla `S`) abre a apresentação da aula. Ela mostra, uma por vez, as imagens da pasta `slides/` na raiz do projeto, em ordem de nome: numere os arquivos na ordem da apresentação (`01-classes.png`, `02-sequencia.svg`...). Valem PNG, JPG, WEBP e SVG; não é preciso listar os arquivos em lugar nenhum, e com `npm run dev` rodando um arquivo novo aparece ao recarregar a página. As imagens são mostradas como HTML por cima do jogo, então ficam nítidas em tela cheia. Prefira imagens em 16:9 (por exemplo 1920 × 1080) ou SVG.
+
+| Ação nos slides | Controle |
+| --- | --- |
+| Próximo slide | `→`, `↓`, `Espaço`, `Page Down`, `Enter` ou clique (fora do terço esquerdo) |
+| Slide anterior | `←`, `↑`, `Page Up`, `Backspace` ou clique no terço esquerdo |
+| Primeiro / último | `Home` / `End` |
+| Tela cheia | `F` ou botão **Tela cheia** (a barra aparece ao mexer o mouse) |
+| Voltar ao menu | `Esc` ou botão **‹ Menu** |
 
 Em **Jogar**, a tela **Nova partida** mostra a tripulação sobre a capa desfocada; escolha de 2 a 5 jogadores. Cada vaga tem um tipo (clique para trocar entre **Humano**, **CPU fácil**, **CPU difícil** e **Fora da partida**) e um nome. **Começar partida** (ou `Enter`) abre o tabuleiro. Os jogadores jogam na ordem da lista.
 
-Na partida, o painel mostra o placar (pontos e marcadores na reserva), de quem é a vez e a peça a colocar. Cada turno tem duas etapas:
+Na partida, o tabuleiro ocupa a tela toda e os painéis ficam por cima (`CenaPainelTabuleiro`). No topo, um cartão por jogador mostra pontos e reserva (os pontinhos são os colonos; o maior, o chefe), com o da vez destacado. No canto superior esquerdo ficam o botão de opções (≡: continuar, nova partida, trocar jogadores e voltar ao menu principal, sempre com confirmação antes de abandonar a partida) e o de centralizar a câmera. No canto superior direito fica quantas peças restam no baralho; as descartadas só aparecem, ao lado, depois do primeiro descarte. No canto inferior esquerdo ficam os últimos acontecimentos; um clique abre o registro com tudo o que aconteceu na partida. No canto inferior direito ficam de quem é a vez, a peça e os botões da etapa. Cada turno tem duas etapas:
 
-1. **Peça:** as posições em verde são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia; se encaixar de mais de um jeito, `R` alterna entre esses jeitos.
+1. **Peça:** as posições tracejadas são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia. Um clique põe a peça sobre a casa, ainda sem colocar: se ela encaixar ali de mais de um jeito, **Girar** (`R`, ou clique de novo na peça) passa só pelos jeitos que servem; **Voltar** (`Backspace`) desfaz a escolha, e clicar em outra casa tracejada muda a escolha. **Confirmar** (`Enter`) coloca a peça.
 2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. Se nenhuma região aceita marcador, o turno termina sozinho.
 
 Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, as construções abertas com marcador pontuam (contagem final) e aparece a classificação. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
 
 | Ação | Controle |
 | --- | --- |
-| Colocar a peça | Clique numa posição verde |
-| Girar a peça (sobre uma posição verde, só entre as rotações que encaixam) | `R`, botão direito, botão **Girar** ou clique na prévia do painel |
+| Escolher a casa da peça | Clique numa posição tracejada |
+| Desfazer a escolha da casa | `Backspace` ou botão **Voltar** |
+| Colocar a peça na casa escolhida | `Enter` ou botão **Confirmar** |
+| Girar a peça (sobre a casa escolhida ou sob o mouse, só entre as rotações que encaixam) | `R`, botão direito, botão **Girar**, clique na peça escolhida ou na prévia do painel |
 | Pôr um marcador | Clique num círculo da peça recém-colocada |
 | Trocar entre colono e chefe | `E` ou botão **Chefe** |
 | Não pôr marcador | `Espaço` ou botão **Pular** |
 | Mover o tabuleiro | Arraste com o mouse |
 | Zoom | Roda do mouse |
-| Voltar ao centro | `C` ou botão **Centralizar** |
-| Recomeçar com os mesmos jogadores | Botão **Nova partida** |
-| Trocar os jogadores | Botão **Jogadores** |
+| Voltar ao centro | `C` ou botão de centralizar (ao lado do ≡) |
+| Ver tudo o que aconteceu | Clique no painel **Acontecimentos** |
+| Opções (nova partida, trocar jogadores, menu principal) | `Esc` ou botão ≡ |
 
 Na tela **Peças**:
 

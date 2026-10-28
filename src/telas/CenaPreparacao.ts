@@ -16,6 +16,7 @@ import {
   desenharArco,
   desenharAvatar,
   desenharFundoDaCapa,
+  tracejarRetangulo,
 } from './ui';
 
 // O que a CenaTabuleiro recebe para montar a partida.
@@ -106,26 +107,6 @@ function iconeTroca(g: Phaser.GameObjects.Graphics, x: number, y: number, cor: n
   g.lineStyle(1.6, cor, 1);
   g.lineBetween(x - 6, y - 3, x + 6, y - 3).lineBetween(x + 6, y - 3, x + 3, y - 6);
   g.lineBetween(x + 6, y + 3, x - 6, y + 3).lineBetween(x - 6, y + 3, x - 3, y + 6);
-}
-
-// Contorno tracejado de um retângulo (para a vaga fora da partida).
-function retanguloTracejado(g: Phaser.GameObjects.Graphics, x: number, y: number, l: number, a: number, cor: number): void {
-  g.lineStyle(1.2, cor, 0.7);
-  const traco = 5;
-  const lados: [number, number, number, number][] = [
-    [x, y, x + l, y],
-    [x + l, y, x + l, y + a],
-    [x + l, y + a, x, y + a],
-    [x, y + a, x, y],
-  ];
-  for (const [x0, y0, x1, y1] of lados) {
-    const comprimento = Math.hypot(x1 - x0, y1 - y0);
-    for (let t = 0; t < comprimento; t += traco * 2) {
-      const t1 = Math.min(t + traco, comprimento);
-      g.lineBetween(x0 + ((x1 - x0) * t) / comprimento, y0 + ((y1 - y0) * t) / comprimento,
-        x0 + ((x1 - x0) * t1) / comprimento, y0 + ((y1 - y0) * t1) / comprimento);
-    }
-  }
 }
 
 // Antes da partida: até 5 vagas, cada uma humano, CPU (fácil ou difícil) ou fora, com nome.
@@ -267,7 +248,7 @@ export class CenaPreparacao extends Phaser.Scene {
         iconeChip(botao, bx + 24, meio, corDoIcone);
       } else {
         botao.fillStyle(0x000000, sobre ? 0.25 : 0.12).fillRoundedRect(bx, by, BOTAO_TIPO.largura, BOTAO_TIPO.altura, 6);
-        retanguloTracejado(botao, bx, by, BOTAO_TIPO.largura, BOTAO_TIPO.altura, 0x9a8070);
+        tracejarRetangulo(botao.lineStyle(1.2, 0x9a8070, 0.7), bx, by, BOTAO_TIPO.largura, BOTAO_TIPO.altura);
         iconeFora(botao, bx + 24, meio, corDoIcone);
       }
       iconeTroca(botao, bx + BOTAO_TIPO.largura - 21, meio, corDoIcone);

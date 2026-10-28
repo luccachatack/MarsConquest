@@ -12,6 +12,7 @@ export const CENAS = {
   pecas: 'pecas',
   regras: 'regras',
   creditos: 'creditos',
+  slides: 'slides',
   preparacao: 'preparacao',
   tabuleiro: 'tabuleiro',
   painelTabuleiro: 'painel-tabuleiro',
@@ -91,6 +92,24 @@ export function criarTituloDaTela(cena: Phaser.Scene, titulo: string): void {
   const fim = 162 + Math.max(texto.width * 0.7, 190);
   desenharArco(cena, [162, 84], [(162 + fim) / 2, 74], [fim, 88]);
   cena.input.keyboard?.on('keydown-ESC', () => cena.scene.start(CENAS.menu));
+}
+
+// Contorno tracejado de um retângulo, com o lineStyle que o Graphics já tiver.
+export function tracejarRetangulo(g: Phaser.GameObjects.Graphics, x: number, y: number, l: number, a: number, traco = 5): void {
+  const lados: [number, number, number, number][] = [
+    [x, y, x + l, y],
+    [x + l, y, x + l, y + a],
+    [x + l, y + a, x, y + a],
+    [x, y + a, x, y],
+  ];
+  for (const [x0, y0, x1, y1] of lados) {
+    const comprimento = Math.hypot(x1 - x0, y1 - y0);
+    for (let t = 0; t < comprimento; t += traco * 2) {
+      const t1 = Math.min(t + traco, comprimento);
+      g.lineBetween(x0 + ((x1 - x0) * t) / comprimento, y0 + ((y1 - y0) * t) / comprimento,
+        x0 + ((x1 - x0) * t1) / comprimento, y0 + ((y1 - y0) * t1) / comprimento);
+    }
+  }
 }
 
 // Avatar de jogador: círculo na cor dele com um capacete de astronauta.
