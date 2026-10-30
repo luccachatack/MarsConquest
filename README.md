@@ -10,9 +10,9 @@ Em `src/jogo/` já existem os tipos básicos (`Direction`, `Terrain`, `Position`
 
 A interface tem um **menu** (`CenaMenu`) com a arte da capa em tela cheia (`public/assets/capa-menu.png`); os botões Jogar, Peças, Regras e Créditos pintados na arte são clicáveis e crescem ao passar o mouse. **Jogar** abre a escolha de jogadores (`CenaPreparacao`) e depois a partida (`CenaTabuleiro`, com o painel `CenaPainelTabuleiro`, que mostra o placar, a vez e os acontecimentos). A tela **Peças** (`CenaCatalogo`) mostra os 24 tipos do catálogo com a letra do quadro na folha de arte e a quantidade de cada um, e gira uma peça com um clique. **Regras** (`CenaRegras`) resume como jogar e a pontuação; **Créditos** (`CenaCreditos`) mostra a equipe. Peças, Regras, Créditos e a escolha de jogadores seguem o estilo da capa; o que elas têm em comum (tons de Marte, fundos, título com o arco, botão Menu, avatar) fica em `src/telas/ui.ts`. Todas as peças usam a arte de `public/assets/pecas_spritesheet.png` (uma folha de 24 quadros de 256 × 256); `src/telas/desenharPeca.ts` diz qual quadro e qual giro cada peça usa. Se a folha não carregar, as peças são desenhadas por código em `src/telas/desenharTile.ts`, a partir dos dados de `Tile.getRegioes()`. Os elementos comuns às telas (botões, textos, cabeçalho) ficam em `src/telas/ui.ts`.
 
-Próximos passos: equilíbrio da pontuação, IA e acabamento (fases 4 a 6 do plano).
+Próximos passos: equilíbrio da pontuação, IA e acabamento.
 
-As especificações estão em [docs/fase-1-especificacao.md](docs/fase-1-especificacao.md), [docs/fase-2-especificacao.md](docs/fase-2-especificacao.md) e [docs/fase-3-especificacao.md](docs/fase-3-especificacao.md). O roteiro completo está em [docs/plano-proximos-passos.pdf](docs/plano-proximos-passos.pdf); ele foi escrito antes da troca de tema e ainda usa os nomes antigos.
+O jogo está publicado em [marsconquest.vercel.app](https://marsconquest.vercel.app/); cada push na `main` atualiza o site.
 
 O repositório do projeto é [luccachatack/MarsConquest](https://github.com/luccachatack/MarsConquest), com branch principal `main` e remoto local `origin`.
 
@@ -26,7 +26,7 @@ Este README será atualizado junto com o desenvolvimento para refletir o que rea
 - Marcador grande incluído.
 - Desempate pela quantidade de marcadores disponíveis antes da contagem final.
 
-Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação (habitat, duto, estufa e campo) estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md). No campo, o colono aparece como marciano e só pontua no fim, 2 por habitat fechado que encosta nele.
+Já implementado: tudo o que está acima. O marcador grande é o **chefe**, que vale por dois na disputa. As regras de pontuação (habitat, duto, estufa e campo) estão na tela **Regras** do jogo e em `src/jogo/Pontuacao.ts`. No campo, o colono aparece como marciano e só pontua no fim, 2 por habitat fechado que encosta nele.
 
 ## O que tem em cada pasta e arquivo
 
@@ -34,13 +34,11 @@ Na lista de arquivos do GitHub, a coluna do meio mostra a mensagem do **último 
 
 | Item | O que é |
 | --- | --- |
-| `docs/` | Documentação do trabalho: especificações das fases 1 a 3, regras de pontuação, plano de próximos passos e os PDFs de referência do grupo. |
 | `public/assets/` | Imagens do jogo servidas direto ao navegador: a arte da capa do menu (`capa-menu.png`) e a folha com a arte das peças (`pecas_spritesheet.png`). |
 | `slides/` | Imagens da apresentação da aula (diagramas etc.), mostradas pelo botão **Slides** do menu, em ordem de nome. |
 | `src/` | Código do jogo: as regras em `jogo/`, a inteligência do computador em `ia/` e as telas feitas com Phaser em `telas/`. |
 | `testes/` | Testes automatizados das regras (Vitest), um arquivo por classe ou assunto, incluindo partidas simuladas inteiras. |
-| `.gitignore` | Lista do que o Git deve ignorar, como `node_modules/`, o build em `dist/` e a pasta local `.tools/`. |
-| `PROMPT_CARCASSONNE.md` | Pedido usado na etapa inicial para montar a estrutura do projeto, guardado como registro histórico. |
+| `.gitignore` | Lista do que o Git deve ignorar, como `node_modules/`, o build em `dist/`, a pasta local `.tools/` e a pasta `docs/`, onde cada um guarda a documentação e as apresentações só no próprio computador. |
 | `README.md` | Este arquivo: estado do projeto, como instalar, rodar e jogar. |
 | `index.html` | Página mínima que o Vite abre no navegador e que carrega o jogo (`src/main.ts`). |
 | `package-lock.json` | Versões exatas de todas as dependências instaladas, para que todos do grupo tenham o mesmo ambiente. |
@@ -48,7 +46,7 @@ Na lista de arquivos do GitHub, a coluna do meio mostra a mensagem do **último 
 | `tsconfig.json` | Configuração do TypeScript, que confere os tipos de `src/` e `testes/`. |
 | `vitest.config.ts` | Configuração dos testes: onde eles ficam e que rodam em Node, sem navegador. |
 
-Dentro de `src/` e `docs/`:
+Dentro de `src/`:
 
 | Item | O que é |
 | --- | --- |
@@ -56,10 +54,6 @@ Dentro de `src/` e `docs/`:
 | `src/jogo/` | Regras, sem depender do Phaser: peças e catálogo (`Tile`, `DefinicaoTile`, `catalogoDeTiles`), baralho (`TileDeck`, `TileFactory`), tabuleiro e construções (`Board`, `Feature`, `UnionFind`), jogadores e marcadores (`Jogador`, `Marcador`), partida e turnos (`Partida`, `EstadoDaPartida`) e pontuação (`Pontuacao`). |
 | `src/ia/` | Estratégias do computador: fácil (sorteia) e difícil (avalia cada jogada e marcador). |
 | `src/telas/` | Telas em Phaser: menu, escolha de jogadores, tabuleiro com painel, peças, regras e créditos, além do desenho das peças e dos marcadores. |
-| `docs/referencias/` | Material original do grupo: apresentação, requisitos (RFs e RNs) e diagrama de classes. |
-| `docs/plano-proximos-passos.pdf` | Análise do projeto e roteiro em fases, escrito antes da troca de tema. |
-| `docs/fase-*-especificacao.md` | O que cada fase implementa, com diagrama de classes, decisões, testes e dificuldades. |
-| `docs/regras-de-pontuacao.md` | Regras de pontuação e dos marcadores já decididas, e o que ainda está pendente. |
 
 As regras ficam separadas da interface: nada em `src/jogo/` ou `src/ia/` usa o Phaser, por isso os testes rodam sem navegador.
 
@@ -172,7 +166,7 @@ Os endereços exibidos foram `http://127.0.0.1:5173/` para desenvolvimento e `ht
 
 Validação realizada no Windows com Node 24.21.0 e npm 11.19.0: instalação reproduzível com `npm ci --offline` usando o cache local, `npm run build` (incluindo `typecheck`) e respostas HTTP 200 do HTML e JavaScript tanto no desenvolvimento quanto no preview. Os servidores usados nessa conferência foram encerrados. Isso valida a configuração inicial, sem representar testes de jogabilidade.
 
-**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 14 arquivos e 130 testes: os casos das especificações das fases 1, 2 e 3, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
+**Testes automatizados:** feitos com Vitest. Os testes ficam em `testes/`, com nome terminado em `.test.ts`, rodam em Node (sem navegador nem Phaser) e importam `describe`, `it` e `expect` de `vitest`. São 17 arquivos e 153 testes: as regras de cada fase do desenvolvimento, a validação de todas as peças do catálogo e partidas simuladas com o catálogo inteiro, inclusive entre computadores. `npm run typecheck` também confere os tipos dos arquivos de `testes/`.
 
 O `tsconfig.json` usa `skipLibCheck: true`: o TypeScript não confere os arquivos de tipos das bibliotecas em `node_modules` (os tipos do Vitest dependem de tipos do Node que o projeto não usa), mas continua conferindo todo o código de `src/` e `testes/`.
 
@@ -207,7 +201,7 @@ Na partida, o tabuleiro ocupa a tela toda e os painéis ficam por cima (`CenaPai
 1. **Peça:** as posições tracejadas são todas as que aceitam a peça em alguma rotação. Passando o mouse sobre uma delas, a peça gira sozinha para uma rotação que encaixa ali e aparece a prévia. Um clique põe a peça sobre a casa, ainda sem colocar: se ela encaixar ali de mais de um jeito, **Girar** (`R`, ou clique de novo na peça) passa só pelos jeitos que servem; **Voltar** (`Backspace`) desfaz a escolha, e clicar em outra casa tracejada muda a escolha. Enquanto a peça está escolhida, os lugares que ela deixaria sem peça que caiba aparecem com um X tracejado piscando, e o painel diz quantos X novos a jogada cria; ao girar ou trocar de casa, a prévia muda. **Confirmar** (`Enter`) coloca a peça.
 2. **Marcador (opcional):** aparecem círculos nas regiões da peça que aceitam marcador, inclusive o solo. Clique num deles para pôr um colono (ou o chefe, se escolhido), ou pule. No solo, o marcador aparece como um marciano na cor do jogador (o chefe, com três olhos) e fica no campo até o fim da partida. Se nenhuma região aceita marcador, o turno termina sozinho.
 
-Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, as construções abertas com marcador pontuam (contagem final) e aparece a classificação. As regras de quem pontua estão em [docs/regras-de-pontuacao.md](docs/regras-de-pontuacao.md).
+Na vez do computador, ele joga sozinho. Peças que não cabem em lugar nenhum são descartadas automaticamente. Um **X vermelho** marca um lugar vazio onde nenhuma das peças que ainda restam (a da vez e as do baralho) encaixa: as construções que encostam nele nunca mais serão completadas. Quando o baralho acaba, as construções abertas com marcador pontuam (contagem final) e aparece a classificação. As regras de quem pontua estão na tela **Regras** do jogo.
 
 | Ação | Controle |
 | --- | --- |
@@ -230,18 +224,6 @@ Na tela **Peças**:
 | Ação | Controle |
 | --- | --- |
 | Girar uma peça do catálogo | Clique nela |
-
-## Referências do trabalho
-
-- [Apresentação e escopo](docs/referencias/carcassonne__completo.pdf).
-- [Requisitos](docs/referencias/Rfs.pdf).
-- [Diagrama de classes](docs/referencias/diagrama-classes.png).
-- [Plano dos próximos passos](docs/plano-proximos-passos.pdf).
-- [Especificação da fase 1](docs/fase-1-especificacao.md).
-- [Especificação da fase 2](docs/fase-2-especificacao.md).
-- [Especificação da fase 3](docs/fase-3-especificacao.md).
-- [Regras de pontuação](docs/regras-de-pontuacao.md).
-- [Prompt da etapa inicial](PROMPT_CARCASSONNE.md).
 
 ## Integrantes
 

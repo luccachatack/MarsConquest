@@ -6,3 +6,7 @@ coverage/
 .env.*
 !.env.example
 .tools/
+
+# Documentação, apresentações e prompts ficam só no computador de cada um, fora do repositório.
+docs/
+PROMPT_CARCASSONNE.md
