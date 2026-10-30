@@ -1,5 +1,7 @@
 # Mars Conquest — Projeto acadêmico
 
+**▶ Jogue no navegador: [marsconquest.vercel.app](https://marsconquest.vercel.app/)**. Não precisa instalar nada.
+
 Trabalho da disciplina de Projeto de Software: um jogo digital local de colocar peças, em que os jogadores constroem uma base em Marte com habitats, dutos, estufas e solo. O desenvolvimento será feito aos poucos, usando **TypeScript** para as classes e regras e **Phaser** para a interface.
 
 ## Estado atual
@@ -12,7 +14,7 @@ A interface tem um **menu** (`CenaMenu`) com a arte da capa em tela cheia (`publ
 
 Próximos passos: equilíbrio da pontuação, IA e acabamento.
 
-O jogo está publicado em [marsconquest.vercel.app](https://marsconquest.vercel.app/); cada push na `main` atualiza o site.
+O site é publicado pela Vercel: cada push na `main` atualiza o jogo em [marsconquest.vercel.app](https://marsconquest.vercel.app/) em cerca de um minuto.
 
 O repositório do projeto é [luccachatack/MarsConquest](https://github.com/luccachatack/MarsConquest), com branch principal `main` e remoto local `origin`.
 
