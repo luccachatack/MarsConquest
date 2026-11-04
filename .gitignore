@@ -10,3 +10,6 @@ coverage/
 # Documentação, apresentações e prompts ficam só no computador de cada um, fora do repositório.
 docs/
 PROMPT_CARCASSONNE.md
+
+# O PDF da apresentação fica só local; o jogo usa as imagens exportadas dele.
+slides/*.pdf
